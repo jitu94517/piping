@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ASME B31.3 Pipe Thickness Calculator</title>
+
+<style>
+body{font-family:Arial;background:#f2f4f7}
+.container{max-width:1100px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
+h2{text-align:center;color:#1f4e79}
+h3{color:#1f4e79;margin-top:20px}
+label{font-weight:bold}
+input,select{width:100%;padding:6px;margin:5px 0 10px}
+button{padding:8px 16px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
+.result{background:#eef4fb;padding:10px;border-radius:6px;margin-top:15px}
+.warning{color:#c0392b;font-weight:bold}
+.readonly{background:#f5f5f5}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>ASME B31.3 – Pipe Thickness Calculator</h2>
+
+<!-- ================= DESIGN INPUT ================= -->
+<h3>1. Design Inputs</h3>
+
+<label>Design Pressure, P (MPa)</label>
+<input type="number" id="P" step="0.01">
+
+<label>Design Temperature, T (°C)</label>
+<input type="number" id="T">
+
+<label>Corrosion Allowance, CA (mm)</label>
+<input type="number" id="CA" value="3">
+
+<label>Mill Tolerance (%)</label>
+<input type="number" id="MT" value="12.5">
+
+<!-- ================= SELECTION ================= -->
+<h3>2. Material & Pipe Selection</h3>
+
+<label>Material</label>
+<select id="material"></select>
+
+<label>Pipe Type</label>
+<select id="pipeType"></select>
+
+<label>Nominal Pipe Size (NPS)</label>
+<select id="nps"></select>
+
+<!-- ================= AUTO PICK ================= -->
+<h3>3. Auto-Picked Values</h3>
+
+<label>Outside Diameter, D (mm)</label>
+<input id="OD" class="readonly" readonly>
+
+<label>Allowable Stress, S (MPa)</label>
+<input id="S" class="readonly" readonly>
+
+<label>Quality Factor, E</label>
+<input id="E" class="readonly" readonly>
+
+<label>Weld Strength Reduction Factor, W</label>
+<input id="W" class="readonly" readonly>
+
+<label>Y Factor</label>
+<input id="Y" class="readonly" readonly>
+
+<!-- ================= CALCULATE ================= -->
+<button onclick="calculate()">Calculate Thickness</button>
+
+<!-- ================= RESULT ================= -->
+<div class="result" id="resultBox" style="display:none">
+
+<h3>4. Results</h3>
+
+<p>Calculated Thickness, t = <b><span id="tCalc"></span> mm</b></p>
+<p>Thickness incl. CA = <b><span id="tCA"></span> mm</b></p>
+<p>Required Nominal Thickness = <b><span id="tNom"></span> mm</b></p>
+
+<p id="warning" class="warning"></p>
+
+</div>
+
+</div>
+
+<script>
+/* ================= LOAD DATABASE ================= */
+let materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
+let pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
+let pipeDimDB  = JSON.parse(localStorage.getItem("pipeDimDB"))  || [];
+let stressDB   = JSON.parse(localStorage.getItem("stressDB"))   || [];
+let yDB        = JSON.parse(localStorage.getItem("yDB"))        || [];
+let wDB        = JSON.parse(localStorage.getItem("wDB"))        || [];
+
+/* ================= INIT ================= */
+window.onload = () => {
+ loadMaterial();
+ loadPipeType();
+ loadNPS();
+};
+
+/* ================= LOAD DROPDOWNS ================= */
+function loadMaterial(){
+ material.innerHTML="";
+ materialDB.forEach(m=>{
+  const displayText = `${m.mat} ${m.grade}`;            // USER SEES
+  const valueText   = `${m.family}|${m.mat}|${m.grade}`; // INTERNAL
+
+  material.innerHTML += `
+    <option value="${valueText}">
+      ${displayText}
+    </option>`;
+ });
+}
+
+function loadPipeType(){
+ pipeType.innerHTML="";
+ pipeTypeDB.forEach(p=>{
+  pipeType.innerHTML+=`
+    <option value="${p.E}">
+      ${p.type}
+    </option>`;
+ });
+}
+
+function loadNPS(){
+ nps.innerHTML="";
+ pipeDimDB.forEach(d=>{
+  nps.innerHTML+=`
+    <option value="${d.od}">
+      ${d.nps}
+    </option>`;
+ });
+}
+
+/* ================= HELPER ================= */
+function nearestHigher(arr, temp){
+ return arr
+  .filter(x => x.temp >= temp)
+  .sort((a,b) => a.temp - b.temp)[0];
+}
+
+/* ================= CALCULATION ================= */
+function calculate(){
+
+ const P  = parseFloat(document.getElementById("P").value);
+ const T  = parseFloat(document.getElementById("T").value);
+ const CA = parseFloat(document.getElementById("CA").value);
+ const MT = parseFloat(document.getElementById("MT").value) / 100;
+
+ const D = parseFloat(nps.value);
+ const E = parseFloat(pipeType.value);
+
+ const matValue = material.value; // Family|Material|Grade
+ const matParts = matValue.split("|");
+ const matYW    = matParts[0] + "|" + matParts[1]; // Family|Material
+
+ const Sobj = nearestHigher(
+  stressDB.filter(x => x.mat === matValue), T
+ );
+ const Yobj = nearestHigher(
+  yDB.filter(x => x.mat === matYW), T
+ );
+ const Wobj = nearestHigher(
+  wDB.filter(x => x.mat === matYW), T
+ );
+
+ if(!Sobj || !Yobj || !Wobj){
+  alert("Required material data not found for selected temperature");
+  return;
+ }
+
+ const S = Sobj.stress;
+ const Y = Yobj.Y;
+ const W = Wobj.W;
+
+ /* ASME B31.3 – Para 304.1.2 */
+ const t = (P * D) / (2 * (S * E * W + P * Y));
+ const tReq = t + CA;
+ const tNom = tReq / (1 - MT);
+
+ /* Display auto-picked values */
+ OD.value = D.toFixed(2);
+ S.value  = S.toFixed(2);
+ E.value  = E.toFixed(3);
+ Y.value  = Y;
+ W.value  = W;
+
+ /* Results */
+ tCalc.innerText = t.toFixed(2);
+ tCA.innerText   = tReq.toFixed(2);
+ tNom.innerText  = tNom.toFixed(2);
+
+ /* Validation */
+ warning.innerText = "";
+ if(D / t <= 6){
+  warning.innerText =
+   "⚠ D/t ≤ 6 : Thin wall assumption may not be valid as per ASME B31.3.";
+ }
+
+ resultBox.style.display="block";
+}
+</script>
+
+</body>
+</html>
