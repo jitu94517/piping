@@ -12,18 +12,8 @@ label{font-weight:bold}
 input,select{width:100%;padding:6px;margin:5px 0 12px}
 button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
 .result{background:#eef4fb;padding:12px;margin-top:15px;border-radius:6px}
-.result b{color:#1f4e79}
-.preview{
- background:#f8fbff;
- border:1px dashed #1f4e79;
- padding:10px;
- margin:8px 0 12px;
- font-size:13px;
-}
-.align{
- font-family:monospace;
- white-space:pre;
-}
+.preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
+.align{font-family:monospace;white-space:pre}
 </style>
 </head>
 
@@ -67,30 +57,33 @@ Y   = <span id="pY">–</span>
 
 <button onclick="calculate()">Calculate Thickness</button>
 
-<!-- FINAL AUTO PICKED -->
 <div class="result" id="autoPicked" style="display:none"></div>
-
-<!-- RESULT -->
 <div class="result" id="out" style="display:none"></div>
 
 </div>
 
 <script>
+/* ===== LOAD DB ===== */
 const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
 const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
-const dimDB      = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
-const yDB        = JSON.parse(localStorage.getItem("yDB")) || [];
-const wDB        = JSON.parse(localStorage.getItem("wDB")) || [];
-const sDB        = JSON.parse(localStorage.getItem("stressDB")) || [];
+const dimDB = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
+const yDB = JSON.parse(localStorage.getItem("yDB")) || [];
+const wDB = JSON.parse(localStorage.getItem("wDB")) || [];
+const sDB = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-function nearestHigher(arr,temp){
+/* ===== HELPERS ===== */
+function nearestHigherTemp(arr,temp){
  return arr.filter(x=>x.temp>=temp).sort((a,b)=>a.temp-b.temp)[0];
 }
+function nearestHigherThickness(arr,val){
+ return arr.filter(x=>x>=val).sort((a,b)=>a-b)[0];
+}
 
+/* ===== INIT ===== */
 function init(){
  material.innerHTML="";
  materialDB.forEach(m=>{
-  material.innerHTML+=`<option value="${m.family}|${m.mat}|${m.grade}">${m.mat} ${m.grade}</option>`;
+  material.innerHTML+=`<option value="${m.mat}">${m.mat} ${m.grade}</option>`;
  });
  pipeType.innerHTML="";
  pipeTypeDB.forEach(p=>pipeType.innerHTML+=`<option value="${p.E}">${p.type}</option>`);
@@ -104,23 +97,24 @@ nps.onchange=updatePreview;
 T.oninput=updatePreview;
 
 function updateNPS(){
- const mat=material.value.split("|")[1];
+ const mat=material.value;
  const list=[...new Set(dimDB.filter(d=>d.material===mat).map(d=>d.nps))];
  nps.innerHTML="<option value=''>-- Select NPS --</option>";
  list.forEach(n=>nps.innerHTML+=`<option>${n}</option>`);
 }
 
 function updatePreview(){
- if(!nps.value||!T.value){resetPreview();return;}
- const mat=material.value.split("|")[1];
+ if(!nps.value||!T.value)return;
+ const mat=material.value;
  const E=Number(pipeType.value);
  const Tval=Number(T.value);
+
  const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
- if(!odRow){resetPreview();return;}
- const Srow=nearestHigher(sDB.filter(s=>s.mat.includes(mat)),Tval);
- const Yrow=nearestHigher(yDB.filter(y=>y.mat.includes(mat)),Tval);
- const Wrow=nearestHigher(wDB.filter(w=>w.mat.includes(mat)),Tval);
- if(!Srow||!Yrow||!Wrow){resetPreview();return;}
+ const Srow=nearestHigherTemp(sDB.filter(s=>s.mat.includes(mat)),Tval);
+ const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
+ const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
+ if(!odRow||!Srow||!Yrow||!Wrow)return;
+
  pOD.innerText=odRow.od.toFixed(2);
  pS.innerText=Srow.stress.toFixed(2);
  pE.innerText=E;
@@ -128,15 +122,15 @@ function updatePreview(){
  pY.innerText=Yrow.Y;
 }
 
-function resetPreview(){
- pOD.innerText=pS.innerText=pE.innerText=pW.innerText=pY.innerText="–";
-}
-
+/* ===== CALCULATION ===== */
 function calculate(){
- if(!nps.value){alert("Select NPS");return;}
- if(!P.value||!T.value){alert("Enter Pressure & Temperature");return;}
 
- const mat=material.value.split("|")[1];
+ if(!nps.value||!P.value||!T.value){
+  alert("Please fill all mandatory inputs");
+  return;
+ }
+
+ const mat=material.value;
  const E=Number(pipeType.value);
  const Pmpa=Number(P.value)/10;
  const Tval=Number(T.value);
@@ -144,35 +138,67 @@ function calculate(){
  const MTval=Number(MT.value)/100;
 
  const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
- const Srow=nearestHigher(sDB.filter(s=>s.mat.includes(mat)),Tval);
- const Yrow=nearestHigher(yDB.filter(y=>y.mat.includes(mat)),Tval);
- const Wrow=nearestHigher(wDB.filter(w=>w.mat.includes(mat)),Tval);
+ const Srow=nearestHigherTemp(sDB.filter(s=>s.mat.includes(mat)),Tval);
+ const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
+ const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
 
- const t=(Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W+Pmpa*Yrow.Y));
- const t_req=(t+CAval)/(1-MTval);
+ if(!odRow||!Srow||!Yrow||!Wrow){
+  alert("Design data not available for given temperature");
+  return;
+ }
+
+ /* 1️⃣ Calculated thickness */
+ const t = (Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W + Pmpa*Yrow.Y));
+ const t_req = (t + CAval)/(1-MTval);
+
+ /* Available thickness list */
+ const avail = dimDB
+  .filter(d=>d.material===mat&&d.nps===nps.value)
+  .map(d=>d.thickness);
+
+ /* 2️⃣ Nearest higher thickness */
+ const t2 = nearestHigherThickness(avail,t_req);
+
+ /* 3️⃣ Suggested thickness */
+ let suggested="N/A";
+ if(t2){
+  const row = dimDB.find(d=>d.material===mat&&d.nps===nps.value&&d.thickness===t2);
+  if(row.schedule){
+   suggested = `${t2} mm (${row.schedule})`;
+  }else{
+   const schRow = dimDB
+    .filter(d=>d.material===mat&&d.nps===nps.value&&d.schedule)
+    .sort((a,b)=>a.thickness-b.thickness)
+    .find(d=>d.thickness>t2);
+   if(schRow) suggested = `${schRow.thickness} mm (${schRow.schedule})`;
+  }
+ }
 
  autoPicked.style.display="block";
  autoPicked.innerHTML=`
 <b>Auto Picked Values (ASME B31.3):</b>
 <div class="align">
-OD  = ${odRow.od.toFixed(2)} mm
+OD  = ${odRow.od} mm
 S   = ${Srow.stress} MPa (at ${Srow.temp}°C)
 E   = ${E}
 W   = ${Wrow.W} (at ${Wrow.temp}°C)
 Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
 </div>
 
-<b>ASME B31.3 Thickness Formula:</b>
+<b>ASME B31.3 Formula:</b>
 <div class="align">
 t = (P × D) / [ 2 × (S × E × W + P × Y) ]
-
 Required Thickness =
-(t + Corrosion Allowance) / (1 − Mill Tolerance)
+(t + CA) / (1 − Mill Tolerance)
 </div>
 `;
 
  out.style.display="block";
- out.innerHTML=`<b>Required Minimum Thickness:</b> ${t_req.toFixed(2)} mm`;
+ out.innerHTML=`
+<b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
+<b>2️⃣ Nearest Higher Thickness (Standard):</b> ${t2 ? t2+" mm" : "Not available"}<br><br>
+<b>3️⃣ Suggested Thickness for Piping System:</b> ${suggested}
+`;
 }
 
 init();
