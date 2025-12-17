@@ -8,206 +8,269 @@
 body{font-family:Arial;background:#f2f4f7}
 .container{max-width:1400px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
 h2{text-align:center;color:#1f4e79}
-h3{margin-top:30px;color:#1f4e79}
-
+h3{color:#1f4e79;margin-top:30px}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border:1px solid #ccc;padding:6px;text-align:center}
 th{background:#eef4fb}
-
-button{padding:4px 10px;cursor:pointer}
-.hidden{display:none}
+button{padding:4px 10px;border:none;cursor:pointer}
+.danger{background:#c0392b;color:#fff}
+.topbar{display:flex;justify-content:space-between;align-items:center}
+hr{margin:30px 0}
 </style>
 </head>
 
 <body>
 <div class="container">
 
-<h2>Saved Data – ASME B31.3</h2>
-
-<!-- LOGIN -->
-<div id="loginBox">
-<input type="password" id="adminPass" placeholder="Admin password">
-<button onclick="login()">Login</button>
+<div class="topbar">
+<h2>Admin Data – ASME B31.3</h2>
+<button onclick="location.href='admin-entry.html'">⬅ Back to Admin Entry</button>
 </div>
-
-<div id="panel" class="hidden">
-
-<button onclick="location.href='admin-entry.html'">
-⬅ Back to Data Entry
-</button>
 
 <!-- ================= MATERIAL MASTER ================= -->
 <h3>Material Master</h3>
 <table>
 <thead>
-<tr><th>Family</th><th>Material</th><th>Grade</th><th>Action</th></tr>
+<tr>
+<th>Family</th><th>Material</th><th>Grade</th><th>Action</th>
+</tr>
 </thead>
-<tbody id="matTable"></tbody>
+<tbody id="materialTable"></tbody>
 </table>
+
+<hr>
 
 <!-- ================= PIPE TYPE ================= -->
 <h3>Pipe Type Master (E Factor)</h3>
 <table>
 <thead>
-<tr><th>Pipe Type</th><th>E</th><th>Action</th></tr>
+<tr>
+<th>Pipe Type</th><th>E</th><th>Action</th>
+</tr>
 </thead>
-<tbody id="pipeTable"></tbody>
+<tbody id="pipeTypeTable"></tbody>
 </table>
 
-<!-- ================= PIPE DIM ================= -->
-<h3>Pipe Dimension (NPS → OD)</h3>
+<hr>
+
+<!-- ================= DIMENSIONS & WEIGHTS ================= -->
+<h3>Dimensions and Weights of Welded and Seamless Wrought Steel Pipe</h3>
 <table>
 <thead>
-<tr><th>NPS</th><th>OD (mm)</th><th>Action</th></tr>
+<tr>
+<th>Code</th>
+<th>Material</th>
+<th>NPS</th>
+<th>Identification</th>
+<th>Schedule</th>
+<th>OD (mm)</th>
+<th>Thickness (mm)</th>
+<th>Weight (kg/m)</th>
+<th>Action</th>
+</tr>
 </thead>
-<tbody id="dimTable"></tbody>
+<tbody id="dimWeightTable"></tbody>
 </table>
+
+<hr>
 
 <!-- ================= Y FACTOR ================= -->
 <h3>Y Factor – ASME B31.3</h3>
 <table>
 <thead>
-<tr><th>Material</th><th>Temperature (°C)</th><th>Y</th><th>Action</th></tr>
+<tr>
+<th>Material</th><th>Temperature (°C)</th><th>Y</th><th>Action</th>
+</tr>
 </thead>
 <tbody id="yTable"></tbody>
 </table>
+
+<hr>
 
 <!-- ================= W FACTOR ================= -->
 <h3>W Factor – ASME B31.3</h3>
 <table>
 <thead>
-<tr><th>Material</th><th>Temperature (°C)</th><th>W</th><th>Action</th></tr>
+<tr>
+<th>Material</th><th>Temperature (°C)</th><th>W</th><th>Action</th>
+</tr>
 </thead>
 <tbody id="wTable"></tbody>
 </table>
+
+<hr>
 
 <!-- ================= STRESS ================= -->
 <h3>Material Basic Allowable Stress (S)</h3>
 <table>
 <thead>
-<tr><th>Material</th><th>Temperature (°C)</th><th>Stress (MPa)</th><th>Action</th></tr>
+<tr>
+<th>Material</th><th>Temperature (°C)</th><th>Stress (MPa)</th><th>Action</th>
+</tr>
 </thead>
-<tbody id="sTable"></tbody>
+<tbody id="stressTable"></tbody>
 </table>
 
 </div>
-</div>
 
 <script>
-const PASSWORD="admin123";
+/* ================= LOAD DATABASES ================= */
+let materialMasterDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
+let pipeTypeDB       = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
+let pipeDimWeightDB  = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
+let yDB              = JSON.parse(localStorage.getItem("yDB")) || [];
+let wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
+let stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-let matDB=[], pipeDB=[], dimDB=[], yDB=[], wDB=[], sDB=[];
-
-/* ================= LOGIN ================= */
-function login(){
- if(adminPass.value===PASSWORD){
-  loginBox.style.display="none";
-  panel.classList.remove("hidden");
-  loadAll();
- } else alert("Wrong password");
-}
-
-/* ================= LOAD ALL ================= */
-function loadAll(){
- matDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
- pipeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
- dimDB = JSON.parse(localStorage.getItem("pipeDimDB")) || [];
- yDB = JSON.parse(localStorage.getItem("yDB")) || [];
- wDB = JSON.parse(localStorage.getItem("wDB")) || [];
- sDB = JSON.parse(localStorage.getItem("stressDB")) || [];
-
- loadMat();
- loadPipe();
- loadDim();
- loadY();
- loadW();
- loadS();
-}
-
-/* ================= LOADERS ================= */
-function loadMat(){
- matTable.innerHTML="";
- matDB.forEach((m,i)=>{
-  matTable.innerHTML+=`
-  <tr>
-   <td>${m.family}</td><td>${m.mat}</td><td>${m.grade}</td>
-   <td><button onclick="delMat(${i})">Del</button></td>
-  </tr>`;
+/* ================= MATERIAL MASTER ================= */
+function loadMaterial(){
+ materialTable.innerHTML="";
+ materialMasterDB.forEach((m,i)=>{
+  materialTable.innerHTML+=`
+   <tr>
+    <td>${m.family}</td>
+    <td>${m.mat}</td>
+    <td>${m.grade}</td>
+    <td>
+     <button class="danger" onclick="delMaterial(${i})">Del</button>
+    </td>
+   </tr>`;
  });
 }
-
-function loadPipe(){
- pipeTable.innerHTML="";
- pipeDB.forEach((p,i)=>{
-  pipeTable.innerHTML+=`
-  <tr>
-   <td>${p.type}</td><td>${p.E}</td>
-   <td><button onclick="delPipe(${i})">Del</button></td>
-  </tr>`;
- });
+function delMaterial(i){
+ if(confirm("Delete this material?")){
+  materialMasterDB.splice(i,1);
+  localStorage.setItem("materialMasterDB",JSON.stringify(materialMasterDB));
+  loadMaterial();
+ }
 }
 
-function loadDim(){
- dimTable.innerHTML="";
- dimDB.forEach((d,i)=>{
-  dimTable.innerHTML+=`
-  <tr>
-   <td>${d.nps}</td><td>${d.od}</td>
-   <td><button onclick="delDim(${i})">Del</button></td>
-  </tr>`;
+/* ================= PIPE TYPE ================= */
+function loadPipeType(){
+ pipeTypeTable.innerHTML="";
+ pipeTypeDB.forEach((p,i)=>{
+  pipeTypeTable.innerHTML+=`
+   <tr>
+    <td>${p.type}</td>
+    <td>${p.E}</td>
+    <td>
+     <button class="danger" onclick="delPipeType(${i})">Del</button>
+    </td>
+   </tr>`;
  });
 }
+function delPipeType(i){
+ if(confirm("Delete this pipe type?")){
+  pipeTypeDB.splice(i,1);
+  localStorage.setItem("pipeTypeDB",JSON.stringify(pipeTypeDB));
+  loadPipeType();
+ }
+}
 
+/* ================= DIMENSIONS & WEIGHTS ================= */
+function loadDimWeight(){
+ dimWeightTable.innerHTML="";
+ pipeDimWeightDB.forEach((d,i)=>{
+  dimWeightTable.innerHTML+=`
+   <tr>
+    <td>${d.code}</td>
+    <td>${d.material}</td>
+    <td>${d.nps}</td>
+    <td>${d.identification || "-"}</td>
+    <td>${d.schedule || "-"}</td>
+    <td>${d.od}</td>
+    <td>${d.thickness}</td>
+    <td>${d.weight}</td>
+    <td>
+     <button class="danger" onclick="delDimWeight(${i})">Del</button>
+    </td>
+   </tr>`;
+ });
+}
+function delDimWeight(i){
+ if(confirm("Delete this dimension & weight entry?")){
+  pipeDimWeightDB.splice(i,1);
+  localStorage.setItem("pipeDimWeightDB",JSON.stringify(pipeDimWeightDB));
+  loadDimWeight();
+ }
+}
+
+/* ================= Y FACTOR ================= */
 function loadY(){
  yTable.innerHTML="";
- yDB.forEach((r,i)=>{
+ yDB.forEach((y,i)=>{
   yTable.innerHTML+=`
-  <tr>
-   <td>${r.mat}</td><td>${r.temp}</td><td>${r.Y}</td>
-   <td><button onclick="delY(${i})">Del</button></td>
-  </tr>`;
+   <tr>
+    <td>${y.mat}</td>
+    <td>${y.temp}</td>
+    <td>${y.Y}</td>
+    <td>
+     <button class="danger" onclick="delY(${i})">Del</button>
+    </td>
+   </tr>`;
  });
 }
+function delY(i){
+ if(confirm("Delete Y factor entry?")){
+  yDB.splice(i,1);
+  localStorage.setItem("yDB",JSON.stringify(yDB));
+  loadY();
+ }
+}
 
+/* ================= W FACTOR ================= */
 function loadW(){
  wTable.innerHTML="";
- wDB.forEach((r,i)=>{
+ wDB.forEach((w,i)=>{
   wTable.innerHTML+=`
-  <tr>
-   <td>${r.mat}</td><td>${r.temp}</td><td>${r.W}</td>
-   <td><button onclick="delW(${i})">Del</button></td>
-  </tr>`;
+   <tr>
+    <td>${w.mat}</td>
+    <td>${w.temp}</td>
+    <td>${w.W}</td>
+    <td>
+     <button class="danger" onclick="delW(${i})">Del</button>
+    </td>
+   </tr>`;
  });
 }
+function delW(i){
+ if(confirm("Delete W factor entry?")){
+  wDB.splice(i,1);
+  localStorage.setItem("wDB",JSON.stringify(wDB));
+  loadW();
+ }
+}
 
-function loadS(){
- sTable.innerHTML="";
- sDB.forEach((r,i)=>{
-  sTable.innerHTML+=`
-  <tr>
-   <td>${r.mat}</td><td>${r.temp}</td><td>${r.stress}</td>
-   <td><button onclick="delS(${i})">Del</button></td>
-  </tr>`;
+/* ================= STRESS ================= */
+function loadStress(){
+ stressTable.innerHTML="";
+ stressDB.forEach((s,i)=>{
+  stressTable.innerHTML+=`
+   <tr>
+    <td>${s.mat}</td>
+    <td>${s.temp}</td>
+    <td>${s.stress}</td>
+    <td>
+     <button class="danger" onclick="delStress(${i})">Del</button>
+    </td>
+   </tr>`;
  });
 }
-
-/* ================= DELETE ================= */
-function delMat(i){matDB.splice(i,1);save();}
-function delPipe(i){pipeDB.splice(i,1);save();}
-function delDim(i){dimDB.splice(i,1);save();}
-function delY(i){yDB.splice(i,1);save();}
-function delW(i){wDB.splice(i,1);save();}
-function delS(i){sDB.splice(i,1);save();}
-
-function save(){
- localStorage.setItem("materialMasterDB",JSON.stringify(matDB));
- localStorage.setItem("pipeTypeDB",JSON.stringify(pipeDB));
- localStorage.setItem("pipeDimDB",JSON.stringify(dimDB));
- localStorage.setItem("yDB",JSON.stringify(yDB));
- localStorage.setItem("wDB",JSON.stringify(wDB));
- localStorage.setItem("stressDB",JSON.stringify(sDB));
- loadAll();
+function delStress(i){
+ if(confirm("Delete stress entry?")){
+  stressDB.splice(i,1);
+  localStorage.setItem("stressDB",JSON.stringify(stressDB));
+  loadStress();
+ }
 }
+
+/* ================= INIT ================= */
+loadMaterial();
+loadPipeType();
+loadDimWeight();
+loadY();
+loadW();
+loadStress();
 </script>
 
 </body>
