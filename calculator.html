@@ -6,15 +6,21 @@
 
 <style>
 body{font-family:Arial;background:#f2f4f7}
-.container{max-width:1100px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
+.container{max-width:900px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
 h2{text-align:center;color:#1f4e79}
-h3{color:#1f4e79;margin-top:20px}
 label{font-weight:bold}
-input,select{width:100%;padding:6px;margin:5px 0 10px}
-button{padding:8px 16px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
-.result{background:#eef4fb;padding:10px;border-radius:6px;margin-top:15px}
-.warning{color:#c0392b;font-weight:bold}
-.readonly{background:#f5f5f5}
+input,select{width:100%;padding:6px;margin:5px 0 12px}
+button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
+.result{background:#eef4fb;padding:10px;margin-top:15px;border-radius:6px}
+.result b{color:#1f4e79}
+.preview{
+ background:#f8fbff;
+ border:1px dashed #1f4e79;
+ padding:8px;
+ margin:8px 0 12px;
+ font-size:13px;
+}
+hr{margin:20px 0}
 </style>
 </head>
 
@@ -23,23 +29,7 @@ button{padding:8px 16px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 
 <h2>ASME B31.3 – Pipe Thickness Calculator</h2>
 
-<!-- ================= DESIGN INPUT ================= -->
-<h3>1. Design Inputs</h3>
-
-<label>Design Pressure, P (MPa)</label>
-<input type="number" id="P" step="0.01">
-
-<label>Design Temperature, T (°C)</label>
-<input type="number" id="T">
-
-<label>Corrosion Allowance, CA (mm)</label>
-<input type="number" id="CA" value="3">
-
-<label>Mill Tolerance (%)</label>
-<input type="number" id="MT" value="12.5">
-
-<!-- ================= SELECTION ================= -->
-<h3>2. Material & Pipe Selection</h3>
+<!-- ================= USER INPUT ================= -->
 
 <label>Material</label>
 <select id="material"></select>
@@ -47,162 +37,212 @@ button{padding:8px 16px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 <label>Pipe Type</label>
 <select id="pipeType"></select>
 
-<label>Nominal Pipe Size (NPS)</label>
+<label>NPS</label>
 <select id="nps"></select>
 
-<!-- ================= AUTO PICK ================= -->
-<h3>3. Auto-Picked Values</h3>
+<label>Design Pressure (bar)</label>
+<input id="P" type="number">
 
-<label>Outside Diameter, D (mm)</label>
-<input id="OD" class="readonly" readonly>
+<label>Design Temperature (°C)</label>
+<input id="T" type="number">
 
-<label>Allowable Stress, S (MPa)</label>
-<input id="S" class="readonly" readonly>
+<label>Corrosion Allowance (mm)</label>
+<input id="CA" value="1.5">
 
-<label>Quality Factor, E</label>
-<input id="E" class="readonly" readonly>
+<label>Mill Tolerance (%)</label>
+<input id="MT" value="12.5">
 
-<label>Weld Strength Reduction Factor, W</label>
-<input id="W" class="readonly" readonly>
+<!-- ===== AUTO PICKED PREVIEW (ALWAYS BEFORE CALCULATE) ===== -->
+<div class="preview" id="previewBox">
+<b>Auto Picked (Preview):</b><br>
+OD = <span id="pOD">–</span> mm |
+S = <span id="pS">–</span> MPa |
+E = <span id="pE">–</span> |
+W = <span id="pW">–</span> |
+Y = <span id="pY">–</span>
+</div>
 
-<label>Y Factor</label>
-<input id="Y" class="readonly" readonly>
-
-<!-- ================= CALCULATE ================= -->
 <button onclick="calculate()">Calculate Thickness</button>
 
-<!-- ================= RESULT ================= -->
-<div class="result" id="resultBox" style="display:none">
-
-<h3>4. Results</h3>
-
-<p>Calculated Thickness, t = <b><span id="tCalc"></span> mm</b></p>
-<p>Thickness incl. CA = <b><span id="tCA"></span> mm</b></p>
-<p>Required Nominal Thickness = <b><span id="tNom"></span> mm</b></p>
-
-<p id="warning" class="warning"></p>
-
+<!-- ================= AUTO PICKED VALUES (DETAIL) ================= -->
+<div class="result" id="autoPicked" style="display:none">
+ <b>Auto Picked Values (ASME B31.3):</b><br><br>
+ Outside Diameter, OD = <span id="odVal"></span> mm<br>
+ Allowable Stress, S = <span id="sVal"></span> MPa<br>
+ Quality Factor, E = <span id="eVal"></span><br>
+ Weld Strength Reduction Factor, W = <span id="wVal"></span><br>
+ Y Factor = <span id="yVal"></span>
 </div>
+
+<!-- ================= FINAL OUTPUT ================= -->
+<div class="result" id="out" style="display:none"></div>
 
 </div>
 
 <script>
-/* ================= LOAD DATABASE ================= */
-let materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
-let pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
-let pipeDimDB  = JSON.parse(localStorage.getItem("pipeDimDB"))  || [];
-let stressDB   = JSON.parse(localStorage.getItem("stressDB"))   || [];
-let yDB        = JSON.parse(localStorage.getItem("yDB"))        || [];
-let wDB        = JSON.parse(localStorage.getItem("wDB"))        || [];
+/* ================= LOAD DATABASES ================= */
+const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
+const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
+const dimDB      = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
+const yDB        = JSON.parse(localStorage.getItem("yDB")) || [];
+const wDB        = JSON.parse(localStorage.getItem("wDB")) || [];
+const sDB        = JSON.parse(localStorage.getItem("stressDB")) || [];
 
 /* ================= INIT ================= */
-window.onload = () => {
- loadMaterial();
- loadPipeType();
- loadNPS();
-};
+function init(){
 
-/* ================= LOAD DROPDOWNS ================= */
-function loadMaterial(){
  material.innerHTML="";
  materialDB.forEach(m=>{
-  const displayText = `${m.mat} ${m.grade}`;            // USER SEES
-  const valueText   = `${m.family}|${m.mat}|${m.grade}`; // INTERNAL
-
-  material.innerHTML += `
-    <option value="${valueText}">
-      ${displayText}
-    </option>`;
+  material.innerHTML+=`
+   <option value="${m.family}|${m.mat}|${m.grade}">
+    ${m.mat} ${m.grade}
+   </option>`;
  });
-}
 
-function loadPipeType(){
  pipeType.innerHTML="";
  pipeTypeDB.forEach(p=>{
-  pipeType.innerHTML+=`
-    <option value="${p.E}">
-      ${p.type}
-    </option>`;
+  pipeType.innerHTML+=`<option value="${p.E}">${p.type}</option>`;
  });
+
+ updateNPS();
+ updatePreview();
 }
 
-function loadNPS(){
- nps.innerHTML="";
- pipeDimDB.forEach(d=>{
-  nps.innerHTML+=`
-    <option value="${d.od}">
-      ${d.nps}
-    </option>`;
- });
+material.onchange = ()=>{ updateNPS(); updatePreview(); };
+pipeType.onchange = updatePreview;
+nps.onchange = updatePreview;
+T.oninput = updatePreview;
+
+/* ================= UPDATE NPS ================= */
+function updateNPS(){
+ const mat = material.value.split("|")[1];
+ const list = [...new Set(
+  dimDB.filter(d=>d.material===mat).map(d=>d.nps)
+ )];
+ nps.innerHTML="<option value=''>-- Select NPS --</option>";
+ list.forEach(n=>nps.innerHTML+=`<option>${n}</option>`);
+}
+
+/* ================= PREVIEW (NO CALCULATION) ================= */
+function updatePreview(){
+
+ if(!nps.value){ resetPreview(); return; }
+
+ const [_,mat] = material.value.split("|");
+ const E = Number(pipeType.value);
+ const Tval = Number(T.value);
+
+ const odRow = dimDB.find(d=>d.material===mat && d.nps===nps.value);
+ if(!odRow){ resetPreview(); return; }
+
+ const S = sDB.filter(s=>s.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(s=>Tval>=s.temp)?.stress;
+
+ const Y = yDB.filter(y=>y.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(y=>Tval>=y.temp)?.Y;
+
+ const W = wDB.filter(w=>w.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(w=>Tval>=w.temp)?.W;
+
+ if(S===undefined || Y===undefined || W===undefined){
+  resetPreview(); return;
+ }
+
+ pOD.innerText = odRow.od.toFixed(2);
+ pS.innerText  = S.toFixed(2);
+ pE.innerText  = E;
+ pW.innerText  = W;
+ pY.innerText  = Y;
+}
+
+function resetPreview(){
+ pOD.innerText = pS.innerText = pE.innerText =
+ pW.innerText = pY.innerText = "–";
 }
 
 /* ================= HELPER ================= */
-function nearestHigher(arr, temp){
- return arr
-  .filter(x => x.temp >= temp)
-  .sort((a,b) => a.temp - b.temp)[0];
+function nearestHigher(arr,val){
+ return arr.filter(x=>x>=val).sort((a,b)=>a-b)[0];
 }
 
 /* ================= CALCULATION ================= */
 function calculate(){
 
- const P  = parseFloat(document.getElementById("P").value);
- const T  = parseFloat(document.getElementById("T").value);
- const CA = parseFloat(document.getElementById("CA").value);
- const MT = parseFloat(document.getElementById("MT").value) / 100;
-
- const D = parseFloat(nps.value);
- const E = parseFloat(pipeType.value);
-
- const matValue = material.value; // Family|Material|Grade
- const matParts = matValue.split("|");
- const matYW    = matParts[0] + "|" + matParts[1]; // Family|Material
-
- const Sobj = nearestHigher(
-  stressDB.filter(x => x.mat === matValue), T
- );
- const Yobj = nearestHigher(
-  yDB.filter(x => x.mat === matYW), T
- );
- const Wobj = nearestHigher(
-  wDB.filter(x => x.mat === matYW), T
- );
-
- if(!Sobj || !Yobj || !Wobj){
-  alert("Required material data not found for selected temperature");
+ if(!nps.value){
+  alert("⚠ Please select NPS before calculation");
+  return;
+ }
+ if(!P.value || !T.value){
+  alert("⚠ Please enter Design Pressure and Temperature");
   return;
  }
 
- const S = Sobj.stress;
- const Y = Yobj.Y;
- const W = Wobj.W;
+ const [_,mat] = material.value.split("|");
+ const E = Number(pipeType.value);
+ const Pmpa = Number(P.value)/10;
+ const Tval = Number(T.value);
+ const CAval = Number(CA.value);
+ const MTval = Number(MT.value)/100;
 
- /* ASME B31.3 – Para 304.1.2 */
- const t = (P * D) / (2 * (S * E * W + P * Y));
- const tReq = t + CA;
- const tNom = tReq / (1 - MT);
+ const odRow = dimDB.find(d=>d.material===mat && d.nps===nps.value);
+ if(!odRow){ alert("OD not found"); return; }
 
- /* Display auto-picked values */
- OD.value = D.toFixed(2);
- S.value  = S.toFixed(2);
- E.value  = E.toFixed(3);
- Y.value  = Y;
- W.value  = W;
+ const S = sDB.filter(s=>s.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(s=>Tval>=s.temp)?.stress;
 
- /* Results */
- tCalc.innerText = t.toFixed(2);
- tCA.innerText   = tReq.toFixed(2);
- tNom.innerText  = tNom.toFixed(2);
+ const Y = yDB.filter(y=>y.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(y=>Tval>=y.temp)?.Y;
 
- /* Validation */
- warning.innerText = "";
- if(D / t <= 6){
-  warning.innerText =
-   "⚠ D/t ≤ 6 : Thin wall assumption may not be valid as per ASME B31.3.";
+ const W = wDB.filter(w=>w.mat.includes(mat))
+  .sort((a,b)=>b.temp-a.temp)
+  .find(w=>Tval>=w.temp)?.W;
+
+ if(S===undefined||Y===undefined||W===undefined){
+  alert("Required design data not found");
+  return;
  }
 
- resultBox.style.display="block";
+ const t = (Pmpa*odRow.od)/(2*(S*E*W + Pmpa*Y));
+ const t_req = (t + CAval)/(1-MTval);
+
+ const thkList = dimDB
+  .filter(d=>d.material===mat && d.nps===nps.value)
+  .map(d=>d.thickness);
+
+ const thk2 = nearestHigher(thkList,t_req);
+ if(!thk2){ alert("No suitable thickness found"); return; }
+
+ const sel = dimDB.find(d=>d.material===mat && d.nps===nps.value && d.thickness===thk2);
+ const sch = sel.schedule || "NON-SCHEDULE";
+
+ /* ===== SHOW AUTO PICKED DETAIL ===== */
+ autoPicked.style.display="block";
+ odVal.innerText = odRow.od.toFixed(2);
+ sVal.innerText  = S.toFixed(2);
+ eVal.innerText  = E;
+ wVal.innerText  = W;
+ yVal.innerText  = Y;
+
+ /* ===== FINAL OUTPUT ===== */
+ out.style.display="block";
+ out.innerHTML=`
+ <b>Calculated Minimum Thickness (incl. CA & Mill Tolerance):</b>
+ ${t_req.toFixed(2)} mm<br><br>
+
+ <b>Nearest Higher Thickness from Standard Table:</b>
+ ${thk2} mm<br><br>
+
+ <b>Suggested Thickness for Piping System:</b>
+ ${thk2} mm (${sch})
+ `;
 }
+
+init();
 </script>
 
 </body>
