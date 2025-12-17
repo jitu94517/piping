@@ -11,14 +11,18 @@ h2{text-align:center;color:#1f4e79}
 label{font-weight:bold}
 input,select{width:100%;padding:6px;margin:5px 0 12px}
 button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
-.result{background:#eef4fb;padding:10px;margin-top:15px;border-radius:6px}
+.result{background:#eef4fb;padding:12px;margin-top:15px;border-radius:6px}
 .result b{color:#1f4e79}
 .preview{
  background:#f8fbff;
  border:1px dashed #1f4e79;
- padding:8px;
+ padding:10px;
  margin:8px 0 12px;
  font-size:13px;
+}
+.align{
+ font-family:monospace;
+ white-space:pre;
 }
 </style>
 </head>
@@ -49,28 +53,29 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 <label>Mill Tolerance (%)</label>
 <input id="MT" value="12.5">
 
-<!-- AUTO PICKED PREVIEW -->
-<div class="preview" id="previewBox">
-<b>Auto Picked (Preview):</b><br>
-OD = <span id="pOD">–</span> mm |
-S = <span id="pS">–</span> MPa |
-E = <span id="pE">–</span> |
-W = <span id="pW">–</span> |
-Y = <span id="pY">–</span>
+<!-- PREVIEW -->
+<div class="preview">
+<b>Auto Picked (Preview):</b>
+<div class="align">
+OD  = <span id="pOD">–</span> mm
+S   = <span id="pS">–</span> MPa
+E   = <span id="pE">–</span>
+W   = <span id="pW">–</span>
+Y   = <span id="pY">–</span>
+</div>
 </div>
 
 <button onclick="calculate()">Calculate Thickness</button>
 
-<!-- AUTO PICKED DETAIL -->
+<!-- FINAL AUTO PICKED -->
 <div class="result" id="autoPicked" style="display:none"></div>
 
-<!-- FINAL RESULT -->
+<!-- RESULT -->
 <div class="result" id="out" style="display:none"></div>
 
 </div>
 
 <script>
-/* ================= DATABASES ================= */
 const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
 const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
 const dimDB      = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
@@ -78,135 +83,96 @@ const yDB        = JSON.parse(localStorage.getItem("yDB")) || [];
 const wDB        = JSON.parse(localStorage.getItem("wDB")) || [];
 const sDB        = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-/* ================= INIT ================= */
+function nearestHigher(arr,temp){
+ return arr.filter(x=>x.temp>=temp).sort((a,b)=>a.temp-b.temp)[0];
+}
+
 function init(){
  material.innerHTML="";
  materialDB.forEach(m=>{
   material.innerHTML+=`<option value="${m.family}|${m.mat}|${m.grade}">${m.mat} ${m.grade}</option>`;
  });
-
  pipeType.innerHTML="";
- pipeTypeDB.forEach(p=>{
-  pipeType.innerHTML+=`<option value="${p.E}">${p.type}</option>`;
- });
-
+ pipeTypeDB.forEach(p=>pipeType.innerHTML+=`<option value="${p.E}">${p.type}</option>`);
  updateNPS();
  updatePreview();
 }
 
-material.onchange = ()=>{updateNPS();updatePreview();};
-pipeType.onchange = updatePreview;
-nps.onchange = updatePreview;
-T.oninput = updatePreview;
-
-/* ================= HELPERS ================= */
-function nearestHigherByTemp(arr,temp,key){
- return arr
-  .filter(x=>x.temp>=temp)
-  .sort((a,b)=>a.temp-b.temp)[0];
-}
+material.onchange=()=>{updateNPS();updatePreview();}
+pipeType.onchange=updatePreview;
+nps.onchange=updatePreview;
+T.oninput=updatePreview;
 
 function updateNPS(){
- const mat = material.value.split("|")[1];
+ const mat=material.value.split("|")[1];
  const list=[...new Set(dimDB.filter(d=>d.material===mat).map(d=>d.nps))];
  nps.innerHTML="<option value=''>-- Select NPS --</option>";
  list.forEach(n=>nps.innerHTML+=`<option>${n}</option>`);
 }
 
-/* ================= PREVIEW ================= */
 function updatePreview(){
- if(!nps.value || !T.value){resetPreview();return;}
-
- const mat = material.value.split("|")[1];
- const E = Number(pipeType.value);
- const Tval = Number(T.value);
-
- const odRow = dimDB.find(d=>d.material===mat && d.nps===nps.value);
+ if(!nps.value||!T.value){resetPreview();return;}
+ const mat=material.value.split("|")[1];
+ const E=Number(pipeType.value);
+ const Tval=Number(T.value);
+ const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
  if(!odRow){resetPreview();return;}
-
- const Srow = nearestHigherByTemp(
-  sDB.filter(s=>s.mat.includes(mat)),Tval,"stress"
- );
- const Yrow = nearestHigherByTemp(
-  yDB.filter(y=>y.mat.includes(mat)),Tval,"Y"
- );
- const Wrow = nearestHigherByTemp(
-  wDB.filter(w=>w.mat.includes(mat)),Tval,"W"
- );
-
+ const Srow=nearestHigher(sDB.filter(s=>s.mat.includes(mat)),Tval);
+ const Yrow=nearestHigher(yDB.filter(y=>y.mat.includes(mat)),Tval);
+ const Wrow=nearestHigher(wDB.filter(w=>w.mat.includes(mat)),Tval);
  if(!Srow||!Yrow||!Wrow){resetPreview();return;}
-
- pOD.innerText = odRow.od.toFixed(2);
- pS.innerText  = Srow.stress.toFixed(2);
- pE.innerText  = E;
- pW.innerText  = Wrow.W;
- pY.innerText  = Yrow.Y;
+ pOD.innerText=odRow.od.toFixed(2);
+ pS.innerText=Srow.stress.toFixed(2);
+ pE.innerText=E;
+ pW.innerText=Wrow.W;
+ pY.innerText=Yrow.Y;
 }
 
 function resetPreview(){
  pOD.innerText=pS.innerText=pE.innerText=pW.innerText=pY.innerText="–";
 }
 
-/* ================= CALCULATION ================= */
 function calculate(){
+ if(!nps.value){alert("Select NPS");return;}
+ if(!P.value||!T.value){alert("Enter Pressure & Temperature");return;}
 
- if(!nps.value){alert("⚠ Please select NPS");return;}
- if(!P.value||!T.value){alert("⚠ Enter Pressure and Temperature");return;}
+ const mat=material.value.split("|")[1];
+ const E=Number(pipeType.value);
+ const Pmpa=Number(P.value)/10;
+ const Tval=Number(T.value);
+ const CAval=Number(CA.value);
+ const MTval=Number(MT.value)/100;
 
- const mat = material.value.split("|")[1];
- const E = Number(pipeType.value);
- const Pmpa = Number(P.value)/10;
- const Tval = Number(T.value);
- const CAval = Number(CA.value);
- const MTval = Number(MT.value)/100;
+ const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
+ const Srow=nearestHigher(sDB.filter(s=>s.mat.includes(mat)),Tval);
+ const Yrow=nearestHigher(yDB.filter(y=>y.mat.includes(mat)),Tval);
+ const Wrow=nearestHigher(wDB.filter(w=>w.mat.includes(mat)),Tval);
 
- const odRow = dimDB.find(d=>d.material===mat && d.nps===nps.value);
- if(!odRow){alert("OD not found");return;}
-
- const Srow = nearestHigherByTemp(
-  sDB.filter(s=>s.mat.includes(mat)),Tval
- );
- const Yrow = nearestHigherByTemp(
-  yDB.filter(y=>y.mat.includes(mat)),Tval
- );
- const Wrow = nearestHigherByTemp(
-  wDB.filter(w=>w.mat.includes(mat)),Tval
- );
-
- if(!Srow||!Yrow||!Wrow){
-  alert("Design temperature exceeds available database range");
-  return;
- }
-
- const t = (Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W + Pmpa*Yrow.Y));
- const t_req = (t + CAval)/(1-MTval);
-
- const thkList = dimDB
-  .filter(d=>d.material===mat && d.nps===nps.value)
-  .map(d=>d.thickness);
-
- const thk2 = thkList.filter(x=>x>=t_req).sort((a,b)=>a-b)[0];
- if(!thk2){alert("No suitable thickness found");return;}
-
- const sel = dimDB.find(d=>d.material===mat && d.nps===nps.value && d.thickness===thk2);
- const sch = sel.schedule || "NON-SCHEDULE";
+ const t=(Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W+Pmpa*Yrow.Y));
+ const t_req=(t+CAval)/(1-MTval);
 
  autoPicked.style.display="block";
  autoPicked.innerHTML=`
- <b>Auto Picked Values:</b><br><br>
- OD = ${odRow.od.toFixed(2)} mm<br>
- S = ${Srow.stress} MPa (considered at ${Srow.temp}°C)<br>
- E = ${E}<br>
- W = ${Wrow.W} (considered at ${Wrow.temp}°C)<br>
- Y = ${Yrow.Y} (considered at ${Yrow.temp}°C)
- `;
+<b>Auto Picked Values (ASME B31.3):</b>
+<div class="align">
+OD  = ${odRow.od.toFixed(2)} mm
+S   = ${Srow.stress} MPa (at ${Srow.temp}°C)
+E   = ${E}
+W   = ${Wrow.W} (at ${Wrow.temp}°C)
+Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
+</div>
+
+<b>ASME B31.3 Thickness Formula:</b>
+<div class="align">
+t = (P × D) / [ 2 × (S × E × W + P × Y) ]
+
+Required Thickness =
+(t + Corrosion Allowance) / (1 − Mill Tolerance)
+</div>
+`;
 
  out.style.display="block";
- out.innerHTML=`
- <b>Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
- <b>Nearest Higher Thickness:</b> ${thk2} mm<br><br>
- <b>Suggested Thickness:</b> ${thk2} mm (${sch})
- `;
+ out.innerHTML=`<b>Required Minimum Thickness:</b> ${t_req.toFixed(2)} mm`;
 }
 
 init();
