@@ -9,9 +9,15 @@ body{font-family:Arial;background:#f2f4f7}
 .container{max-width:1200px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
 h2{text-align:center;color:#1f4e79}
 h3{color:#1f4e79;margin-top:25px}
+
 .hint{font-size:12px;color:#777;margin-bottom:4px}
+.helper{font-size:12px;margin:-6px 0 10px}
+.helper.ok{color:#2e7d32}
+.helper.warn{color:#d32f2f}
+.helper.info{color:#1565c0}
+
 label{font-weight:bold}
-input,select{width:100%;padding:6px;margin:5px 0 10px}
+input,select{width:100%;padding:6px;margin:5px 0 4px}
 button{padding:6px 14px;background:#1f4e79;color:#fff;border:none;cursor:pointer;margin-right:5px}
 .hidden{display:none}
 hr{margin:25px 0}
@@ -61,7 +67,9 @@ hr{margin:25px 0}
 <!-- ================= DIMENSIONS & WEIGHTS ================= -->
 <h3>Dimensions and Weights of Welded and Seamless Wrought Steel Pipe</h3>
 <div class="hint">
-As per ASME B36.10 (Carbon Steel) / ASME B36.19 (Stainless Steel)
+As per ASME B36.10 (CS) / ASME B36.19 (SS)  
+Rule: Total rows = number of commas + 1  
+Leave blank between commas for NON-schedule / NON-identification
 </div>
 
 <label>Material Type</label>
@@ -71,24 +79,28 @@ As per ASME B36.10 (Carbon Steel) / ASME B36.19 (Stainless Steel)
 </select>
 
 <label>NPS (DN) – comma separated</label>
-<input id="dwNps" placeholder="e.g. 2,3,4,6">
+<input id="dwNps" oninput="helperCheck()" placeholder="e.g. 2,2,2,2">
+<div id="hNps" class="helper info"></div>
 
 <label>Identification (optional) – comma separated</label>
-<div class="hint">Leave blank where not applicable. Example: ,STD,,XS</div>
-<input id="dwIdent" placeholder="STD, XS, ">
+<input id="dwIdent" oninput="helperCheck()" placeholder="Example: ,,,  or  STD,,XS">
+<div id="hIdent" class="helper info"></div>
 
 <label>Schedule No. (optional) – comma separated</label>
-<div class="hint">Leave blank for NON-schedule thickness. Example: ,40,,80</div>
-<input id="dwSch" placeholder="40, 80, ">
+<input id="dwSch" oninput="helperCheck()" placeholder="Example: 5,,10,30">
+<div id="hSch" class="helper info"></div>
 
 <label>Outside Diameter (mm) – comma separated</label>
-<input id="dwOD" placeholder="114.3, 168.3, 219.1">
+<input id="dwOD" oninput="helperCheck()" placeholder="114.3,114.3,114.3,114.3">
+<div id="hOD" class="helper info"></div>
 
 <label>Wall Thickness (mm) – comma separated</label>
-<input id="dwThk" placeholder="6.02, 7.11, 8.18">
+<input id="dwThk" oninput="helperCheck()" placeholder="3.91,4.78,6.35,7.01">
+<div id="hThk" class="helper info"></div>
 
 <label>Plain End Weight (kg/m) – comma separated</label>
-<input id="dwWt" placeholder="16.07, 22.30, 27.63">
+<input id="dwWt" oninput="helperCheck()" placeholder="5.44,6.63,8.62,9.54">
+<div id="hWt" class="helper info"></div>
 
 <button onclick="saveDimWeight()">Save Dimensions & Weights</button>
 
@@ -121,9 +133,7 @@ As per ASME B36.10 (Carbon Steel) / ASME B36.19 (Stainless Steel)
 
 <hr>
 
-<button onclick="location.href='admin-data.html'">
-📄 View Saved Data
-</button>
+<button onclick="location.href='admin-data.html'">📄 View Saved Data</button>
 
 </div>
 </div>
@@ -143,7 +153,7 @@ let wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
 let stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
 
 /* ================= UTIL ================= */
-const splitClean = v => v.split(",").map(x=>x.trim()).filter(Boolean);
+const split = v => v.split(",").map(x=>x.trim());
 const toast = msg => {
  const t=document.getElementById("toast");
  t.innerText=msg;
@@ -160,99 +170,105 @@ function login(){
  } else alert("Wrong password");
 }
 
-/* ================= MATERIAL MASTER ================= */
-function saveMaterial(){
- splitClean(mGrades.value).forEach(g=>{
-  materialMasterDB.push({
-   family:mFamily.value,
-   mat:mType.value,
-   grade:g
-  });
- });
- persist();
- toast("Material saved");
- mFamily.value=mType.value=mGrades.value="";
- populateMaterialDropdowns();
+/* ================= AUTO HELPER ================= */
+function helperCheck(){
+ const fields = {
+  NPS: split(dwNps.value),
+  IDENT: split(dwIdent.value),
+  SCH: split(dwSch.value),
+  OD: split(dwOD.value),
+  THK: split(dwThk.value),
+  WT: split(dwWt.value)
+ };
+
+ const counts = Object.values(fields).map(a=>a.length);
+ const max = Math.max(...counts);
+
+ function msg(id,text,type){
+  const el=document.getElementById(id);
+  el.innerText=text;
+  el.className="helper "+type;
+ }
+
+ msg("hNps",`Rows detected: ${fields.NPS.length}`,"info");
+ msg("hIdent",`Blank allowed. Rows: ${fields.IDENT.length}`,"info");
+ msg("hSch",`Blank = NON-schedule. Rows: ${fields.SCH.length}`,"info");
+ msg("hOD",`Rows: ${fields.OD.length}`,"info");
+ msg("hThk",`Rows: ${fields.THK.length}`,"info");
+ msg("hWt",`Rows: ${fields.WT.length}`,"info");
+
+ if(!counts.every(c=>c===max)){
+  msg("hWt","⚠ Mismatch: All fields must have same number of entries","warn");
+ }
 }
 
-/* ================= PIPE TYPE ================= */
-function savePipeType(){
- const p=splitClean(ptypeNames.value), e=splitClean(ptypeEs.value);
- if(p.length!==e.length){alert("Mismatch in Pipe Type & E");return;}
- p.forEach((x,i)=>pipeTypeDB.push({type:x,E:+e[i]}));
- persist();
- toast("Pipe type saved");
- ptypeNames.value=ptypeEs.value="";
-}
-
-/* ================= DIMENSIONS & WEIGHTS (FIXED) ================= */
+/* ================= SAVE DIM & WEIGHT ================= */
 function saveDimWeight(){
- const mat = dwMaterial.value;
- const code = mat==="CS" ? "B36.10" : "B36.19";
+ const nps = split(dwNps.value);
+ const ident = split(dwIdent.value);
+ const sch = split(dwSch.value);
+ const od = split(dwOD.value);
+ const thk = split(dwThk.value);
+ const wt = split(dwWt.value);
 
- const npsArr   = splitClean(dwNps.value);
- const identArr = dwIdent.value.split(",").map(x=>x.trim()); // KEEP BLANKS
- const schArr   = dwSch.value.split(",").map(x=>x.trim());   // KEEP BLANKS
- const odArr    = splitClean(dwOD.value);
- const thkArr   = splitClean(dwThk.value);
- const wtArr    = splitClean(dwWt.value);
-
- const len = npsArr.length;
-
- if(
-  identArr.length!==len ||
-  schArr.length!==len ||
-  odArr.length!==len ||
-  thkArr.length!==len ||
-  wtArr.length!==len
- ){
-  alert("Comma count mismatch in Dimensions & Weights");
+ const len = nps.length;
+ if([ident,sch,od,thk,wt].some(a=>a.length!==len)){
+  alert("Comma count mismatch. Check helper messages.");
   return;
  }
 
+ const mat = dwMaterial.value;
+ const code = mat==="CS" ? "B36.10" : "B36.19";
+
  for(let i=0;i<len;i++){
   pipeDimWeightDB.push({
-   code:code,
-   material:mat,
-   nps:npsArr[i],
-   identification:identArr[i] || "",   // BLANK = no identification
-   schedule:schArr[i] || "",           // BLANK = NON-schedule
-   od:parseFloat(odArr[i]),
-   thickness:parseFloat(thkArr[i]),
-   weight:parseFloat(wtArr[i])
+   code, material:mat,
+   nps:nps[i],
+   identification: ident[i] || "",
+   schedule: sch[i] || "",
+   od:+od[i], thickness:+thk[i], weight:+wt[i]
   });
  }
 
  persist();
  toast("Dimensions & Weights saved");
-
- dwNps.value=dwIdent.value=dwSch.value=
- dwOD.value=dwThk.value=dwWt.value="";
+ dwNps.value=dwIdent.value=dwSch.value=dwOD.value=dwThk.value=dwWt.value="";
 }
 
-/* ================= Y / W / STRESS ================= */
-function saveY(){
- const t=splitClean(yTemps.value), v=splitClean(yValues.value);
+/* ================= OTHER SAVES (unchanged) ================= */
+function saveMaterial(){
+ split(mGrades.value).filter(Boolean).forEach(g=>{
+  materialMasterDB.push({family:mFamily.value,mat:mType.value,grade:g});
+ });
+ persist(); toast("Material saved");
+ mFamily.value=mType.value=mGrades.value="";
+ populateMaterialDropdowns();
+}
+
+function savePipeType(){
+ const p=split(ptypeNames.value), e=split(ptypeEs.value);
+ if(p.length!==e.length){alert("Mismatch in Pipe Type & E");return;}
+ p.forEach((x,i)=>pipeTypeDB.push({type:x,E:+e[i]}));
+ persist(); toast("Pipe type saved");
+ ptypeNames.value=ptypeEs.value="";
+}
+
+function saveY(){const t=split(yTemps.value),v=split(yValues.value);
  if(t.length!==v.length){alert("Temp & Y mismatch");return;}
  t.forEach((x,i)=>yDB.push({mat:yMaterial.value,temp:+x,Y:+v[i]}));
- persist(); toast("Y factor saved");
- yTemps.value=yValues.value="";
+ persist(); toast("Y factor saved"); yTemps.value=yValues.value="";
 }
 
-function saveW(){
- const t=splitClean(wTemps.value), v=splitClean(wValues.value);
+function saveW(){const t=split(wTemps.value),v=split(wValues.value);
  if(t.length!==v.length){alert("Temp & W mismatch");return;}
  t.forEach((x,i)=>wDB.push({mat:wMaterial.value,temp:+x,W:+v[i]}));
- persist(); toast("W factor saved");
- wTemps.value=wValues.value="";
+ persist(); toast("W factor saved"); wTemps.value=wValues.value="";
 }
 
-function saveStress(){
- const t=splitClean(sTemps.value), v=splitClean(sValues.value);
+function saveStress(){const t=split(sTemps.value),v=split(sValues.value);
  if(t.length!==v.length){alert("Temp & Stress mismatch");return;}
  t.forEach((x,i)=>stressDB.push({mat:sMaterial.value,temp:+x,stress:+v[i]}));
- persist(); toast("Stress saved");
- sTemps.value=sValues.value="";
+ persist(); toast("Stress saved"); sTemps.value=sValues.value="";
 }
 
 /* ================= DROPDOWNS ================= */
@@ -260,14 +276,11 @@ function populateMaterialDropdowns(){
  yMaterial.innerHTML=wMaterial.innerHTML=sMaterial.innerHTML="";
  const uniqYW=[...new Set(materialMasterDB.map(m=>`${m.family}|${m.mat}`))];
  uniqYW.forEach(m=>{
-  yMaterial.innerHTML+=`<option value="${m}">${m}</option>`;
-  wMaterial.innerHTML+=`<option value="${m}">${m}</option>`;
+  yMaterial.innerHTML+=`<option>${m}</option>`;
+  wMaterial.innerHTML+=`<option>${m}</option>`;
  });
  materialMasterDB.forEach(m=>{
-  sMaterial.innerHTML+=`
-   <option value="${m.family}|${m.mat}|${m.grade}">
-    ${m.mat} ${m.grade}
-   </option>`;
+  sMaterial.innerHTML+=`<option>${m.mat} ${m.grade}</option>`;
  });
 }
 
