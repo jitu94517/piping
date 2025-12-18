@@ -15,6 +15,24 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
 .align{font-family:monospace;white-space:pre}
 .justify{background:#f9fafc;padding:10px;border-left:4px solid #1f4e79}
+
+/* Formula styling */
+.formula{
+  font-family:monospace;
+  margin-top:8px;
+}
+.frac{
+  display:inline-block;
+  vertical-align:middle;
+  text-align:center;
+}
+.frac .top{
+  border-bottom:1px solid #000;
+  padding:0 8px;
+}
+.frac .bottom{
+  padding:0 8px;
+}
 </style>
 </head>
 
@@ -144,29 +162,21 @@ function calculate(){
  const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
  const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
 
- /* 1️⃣ Calculated thickness */
- const t = (Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W + Pmpa*Yrow.Y));
- const t_req = (t + CAval)/(1-MTval);
+ const t=(Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W+Pmpa*Yrow.Y));
+ const t_req=(t+CAval)/(1-MTval);
 
- /* Available thickness */
- const avail = dimDB.filter(d=>d.material===mat&&d.nps===nps.value);
+ const avail=dimDB.filter(d=>d.material===mat&&d.nps===nps.value);
+ const t2=nearestHigherThickness(avail.map(d=>d.thickness),t_req);
+ const row2=avail.find(d=>d.thickness===t2);
 
- /* 2️⃣ Nearest higher */
- const t2 = nearestHigherThickness(avail.map(d=>d.thickness),t_req);
- const row2 = avail.find(d=>d.thickness===t2);
-
- /* 3️⃣ Suggested */
- let suggestedRow = row2;
+ let suggested=row2;
  if(!row2.schedule){
-  suggestedRow = avail
-   .filter(d=>d.schedule)
+  suggested=avail.filter(d=>d.schedule)
    .sort((a,b)=>a.thickness-b.thickness)
    .find(d=>d.thickness>t2);
  }
- const suggestedT = suggestedRow.thickness;
 
- /* Design margin */
- const margin = ((suggestedT - t_req)/t_req)*100;
+ const margin=((suggested.thickness-t_req)/t_req)*100;
 
  autoPicked.style.display="block";
  autoPicked.innerHTML=`
@@ -180,11 +190,21 @@ Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
 </div>
 
 <b>ASME B31.3 Thickness Formula:</b>
-<div class="align">
-t = (P × D) / [ 2 × (S × E × W + P × Y) ]
 
+<div class="formula">
+t =
+<span class="frac">
+ <span class="top">P × D</span>
+ <span class="bottom">2 × ( S × E × W + P × Y )</span>
+</span>
+</div>
+
+<div class="formula">
 Required Thickness =
-(t + Corrosion Allowance) / (1 − Mill Tolerance)
+<span class="frac">
+ <span class="top">t + Corrosion Allowance</span>
+ <span class="bottom">1 − Mill Tolerance</span>
+</span>
 </div>
 `;
 
@@ -193,7 +213,7 @@ Required Thickness =
 <b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
 <b>2️⃣ Nearest Higher Thickness (Standard):</b> ${t2} mm<br><br>
 <b>3️⃣ Suggested Thickness for Piping System:</b>
-${suggestedT} mm (${suggestedRow.schedule || "NON-SCHEDULE"})
+${suggested.thickness} mm (${suggested.schedule || "NON-SCHEDULE"})
 `;
 
  marginBox.style.display="block";
@@ -211,7 +231,7 @@ is calculated as ${t_req.toFixed(2)} mm.<br><br>
 
 The nearest higher available standard thickness is ${t2} mm.
 However, for standardization and ease of procurement,
-${suggestedT} mm (${suggestedRow.schedule || "standard thickness"})
+${suggested.thickness} mm (${suggested.schedule || "standard thickness"})
 has been selected for the piping system.
 This provides a design margin of ${margin.toFixed(1)}%.
 `;
