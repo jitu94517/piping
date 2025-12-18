@@ -6,7 +6,7 @@
 
 <style>
 body{font-family:Arial;background:#f2f4f7}
-.container{max-width:900px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
+.container{max-width:950px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
 h2{text-align:center;color:#1f4e79}
 label{font-weight:bold}
 input,select{width:100%;padding:6px;margin:5px 0 12px}
@@ -14,6 +14,7 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .result{background:#eef4fb;padding:12px;margin-top:15px;border-radius:6px}
 .preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
 .align{font-family:monospace;white-space:pre}
+.justify{background:#f9fafc;padding:10px;border-left:4px solid #1f4e79}
 </style>
 </head>
 
@@ -59,11 +60,13 @@ Y   = <span id="pY">–</span>
 
 <div class="result" id="autoPicked" style="display:none"></div>
 <div class="result" id="out" style="display:none"></div>
+<div class="result" id="marginBox" style="display:none"></div>
+<div class="result justify" id="justifyBox" style="display:none"></div>
 
 </div>
 
 <script>
-/* ===== LOAD DB ===== */
+/* ===== DATABASE ===== */
 const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
 const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
 const dimDB = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
@@ -108,7 +111,6 @@ function updatePreview(){
  const mat=material.value;
  const E=Number(pipeType.value);
  const Tval=Number(T.value);
-
  const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
  const Srow=nearestHigherTemp(sDB.filter(s=>s.mat.includes(mat)),Tval);
  const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
@@ -142,37 +144,29 @@ function calculate(){
  const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
  const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
 
- if(!odRow||!Srow||!Yrow||!Wrow){
-  alert("Design data not available for given temperature");
-  return;
- }
-
- /* 1️⃣ Calculated thickness */
+ /* 1️⃣ Required thickness */
  const t = (Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W + Pmpa*Yrow.Y));
  const t_req = (t + CAval)/(1-MTval);
 
- /* Available thickness list */
- const avail = dimDB
-  .filter(d=>d.material===mat&&d.nps===nps.value)
-  .map(d=>d.thickness);
+ /* Available thickness */
+ const avail = dimDB.filter(d=>d.material===mat&&d.nps===nps.value);
 
- /* 2️⃣ Nearest higher thickness */
- const t2 = nearestHigherThickness(avail,t_req);
+ /* 2️⃣ Nearest higher */
+ const t2 = nearestHigherThickness(avail.map(d=>d.thickness),t_req);
+ const row2 = avail.find(d=>d.thickness===t2);
 
- /* 3️⃣ Suggested thickness */
- let suggested="N/A";
- if(t2){
-  const row = dimDB.find(d=>d.material===mat&&d.nps===nps.value&&d.thickness===t2);
-  if(row.schedule){
-   suggested = `${t2} mm (${row.schedule})`;
-  }else{
-   const schRow = dimDB
-    .filter(d=>d.material===mat&&d.nps===nps.value&&d.schedule)
-    .sort((a,b)=>a.thickness-b.thickness)
-    .find(d=>d.thickness>t2);
-   if(schRow) suggested = `${schRow.thickness} mm (${schRow.schedule})`;
-  }
+ /* 3️⃣ Suggested */
+ let suggestedRow = row2;
+ if(!row2.schedule){
+  suggestedRow = avail
+   .filter(d=>d.schedule)
+   .sort((a,b)=>a.thickness-b.thickness)
+   .find(d=>d.thickness>t2);
  }
+ const suggestedT = suggestedRow.thickness;
+
+ /* Design margin */
+ const margin = ((suggestedT - t_req)/t_req)*100;
 
  autoPicked.style.display="block";
  autoPicked.innerHTML=`
@@ -184,20 +178,36 @@ E   = ${E}
 W   = ${Wrow.W} (at ${Wrow.temp}°C)
 Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
 </div>
-
-<b>ASME B31.3 Formula:</b>
-<div class="align">
-t = (P × D) / [ 2 × (S × E × W + P × Y) ]
-Required Thickness =
-(t + CA) / (1 − Mill Tolerance)
-</div>
 `;
 
  out.style.display="block";
  out.innerHTML=`
 <b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
-<b>2️⃣ Nearest Higher Thickness (Standard):</b> ${t2 ? t2+" mm" : "Not available"}<br><br>
-<b>3️⃣ Suggested Thickness for Piping System:</b> ${suggested}
+<b>2️⃣ Nearest Higher Thickness (Standard):</b> ${t2} mm<br><br>
+<b>3️⃣ Suggested Thickness for Piping System:</b>
+${suggestedT} mm (${suggestedRow.schedule || "NON-SCHEDULE"})
+`;
+
+ marginBox.style.display="block";
+ marginBox.innerHTML=`
+<b>Design Margin:</b> ${margin.toFixed(1)} %
+`;
+
+ justifyBox.style.display="block";
+ justifyBox.innerHTML=`
+<b>Thickness Justification:</b><br><br>
+The minimum required wall thickness as per ASME B31.3,
+considering design pressure ${P.value} bar,
+design temperature ${T.value}°C,
+corrosion allowance ${CAval} mm
+and mill tolerance ${MT.value}%,
+is calculated as ${t_req.toFixed(2)} mm.<br><br>
+
+The nearest higher available standard thickness is ${t2} mm.
+However, for standardization and ease of procurement,
+${suggestedT} mm (${suggestedRow.schedule || "standard thickness"})
+has been selected for the piping system.
+This provides a design margin of ${margin.toFixed(1)}%.
 `;
 }
 
