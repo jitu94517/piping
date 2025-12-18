@@ -73,10 +73,12 @@ As per ASME B36.10 (Carbon Steel) / ASME B36.19 (Stainless Steel)
 <label>NPS (DN) – comma separated</label>
 <input id="dwNps" placeholder="e.g. 2,3,4,6">
 
-<label>Identification – comma separated</label>
-<input id="dwIdent" placeholder="STD, XS, NON-SCH">
+<label>Identification (optional) – comma separated</label>
+<div class="hint">Leave blank where not applicable. Example: ,STD,,XS</div>
+<input id="dwIdent" placeholder="STD, XS, ">
 
 <label>Schedule No. (optional) – comma separated</label>
+<div class="hint">Leave blank for NON-schedule thickness. Example: ,40,,80</div>
 <input id="dwSch" placeholder="40, 80, ">
 
 <label>Outside Diameter (mm) – comma separated</label>
@@ -141,7 +143,7 @@ let wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
 let stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
 
 /* ================= UTIL ================= */
-const split = v => v.split(",").map(x=>x.trim()).filter(Boolean);
+const splitClean = v => v.split(",").map(x=>x.trim()).filter(Boolean);
 const toast = msg => {
  const t=document.getElementById("toast");
  t.innerText=msg;
@@ -160,7 +162,7 @@ function login(){
 
 /* ================= MATERIAL MASTER ================= */
 function saveMaterial(){
- split(mGrades.value).forEach(g=>{
+ splitClean(mGrades.value).forEach(g=>{
   materialMasterDB.push({
    family:mFamily.value,
    mat:mType.value,
@@ -175,7 +177,7 @@ function saveMaterial(){
 
 /* ================= PIPE TYPE ================= */
 function savePipeType(){
- const p=split(ptypeNames.value), e=split(ptypeEs.value);
+ const p=splitClean(ptypeNames.value), e=splitClean(ptypeEs.value);
  if(p.length!==e.length){alert("Mismatch in Pipe Type & E");return;}
  p.forEach((x,i)=>pipeTypeDB.push({type:x,E:+e[i]}));
  persist();
@@ -183,22 +185,23 @@ function savePipeType(){
  ptypeNames.value=ptypeEs.value="";
 }
 
-/* ================= DIMENSIONS & WEIGHTS ================= */
+/* ================= DIMENSIONS & WEIGHTS (FIXED) ================= */
 function saveDimWeight(){
  const mat = dwMaterial.value;
  const code = mat==="CS" ? "B36.10" : "B36.19";
 
- const npsArr = split(dwNps.value);
- const idArr  = split(dwIdent.value);
- const schArr = split(dwSch.value);
- const odArr  = split(dwOD.value);
- const thkArr = split(dwThk.value);
- const wtArr  = split(dwWt.value);
+ const npsArr   = splitClean(dwNps.value);
+ const identArr = dwIdent.value.split(",").map(x=>x.trim()); // KEEP BLANKS
+ const schArr   = dwSch.value.split(",").map(x=>x.trim());   // KEEP BLANKS
+ const odArr    = splitClean(dwOD.value);
+ const thkArr   = splitClean(dwThk.value);
+ const wtArr    = splitClean(dwWt.value);
 
  const len = npsArr.length;
 
  if(
-  idArr.length!==len ||
+  identArr.length!==len ||
+  schArr.length!==len ||
   odArr.length!==len ||
   thkArr.length!==len ||
   wtArr.length!==len
@@ -212,8 +215,8 @@ function saveDimWeight(){
    code:code,
    material:mat,
    nps:npsArr[i],
-   identification:idArr[i],
-   schedule:schArr[i] || "",
+   identification:identArr[i] || "",   // BLANK = no identification
+   schedule:schArr[i] || "",           // BLANK = NON-schedule
    od:parseFloat(odArr[i]),
    thickness:parseFloat(thkArr[i]),
    weight:parseFloat(wtArr[i])
@@ -229,7 +232,7 @@ function saveDimWeight(){
 
 /* ================= Y / W / STRESS ================= */
 function saveY(){
- const t=split(yTemps.value), v=split(yValues.value);
+ const t=splitClean(yTemps.value), v=splitClean(yValues.value);
  if(t.length!==v.length){alert("Temp & Y mismatch");return;}
  t.forEach((x,i)=>yDB.push({mat:yMaterial.value,temp:+x,Y:+v[i]}));
  persist(); toast("Y factor saved");
@@ -237,7 +240,7 @@ function saveY(){
 }
 
 function saveW(){
- const t=split(wTemps.value), v=split(wValues.value);
+ const t=splitClean(wTemps.value), v=splitClean(wValues.value);
  if(t.length!==v.length){alert("Temp & W mismatch");return;}
  t.forEach((x,i)=>wDB.push({mat:wMaterial.value,temp:+x,W:+v[i]}));
  persist(); toast("W factor saved");
@@ -245,7 +248,7 @@ function saveW(){
 }
 
 function saveStress(){
- const t=split(sTemps.value), v=split(sValues.value);
+ const t=splitClean(sTemps.value), v=splitClean(sValues.value);
  if(t.length!==v.length){alert("Temp & Stress mismatch");return;}
  t.forEach((x,i)=>stressDB.push({mat:sMaterial.value,temp:+x,stress:+v[i]}));
  persist(); toast("Stress saved");
