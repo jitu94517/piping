@@ -144,7 +144,7 @@ function calculate(){
  const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
  const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
 
- /* 1️⃣ Required thickness */
+ /* 1️⃣ Calculated thickness */
  const t = (Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W + Pmpa*Yrow.Y));
  const t_req = (t + CAval)/(1-MTval);
 
@@ -178,6 +178,14 @@ E   = ${E}
 W   = ${Wrow.W} (at ${Wrow.temp}°C)
 Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
 </div>
+
+<b>ASME B31.3 Thickness Formula:</b>
+<div class="align">
+t = (P × D) / [ 2 × (S × E × W + P × Y) ]
+
+Required Thickness =
+(t + Corrosion Allowance) / (1 − Mill Tolerance)
+</div>
 `;
 
  out.style.display="block";
@@ -189,9 +197,7 @@ ${suggestedT} mm (${suggestedRow.schedule || "NON-SCHEDULE"})
 `;
 
  marginBox.style.display="block";
- marginBox.innerHTML=`
-<b>Design Margin:</b> ${margin.toFixed(1)} %
-`;
+ marginBox.innerHTML=`<b>Design Margin:</b> ${margin.toFixed(1)} %`;
 
  justifyBox.style.display="block";
  justifyBox.innerHTML=`
