@@ -10,18 +10,28 @@ body{font-family:Arial;background:#f2f4f7}
 h2{text-align:center;color:#1f4e79}
 h3{color:#1f4e79;margin-top:30px}
 
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid #ccc;padding:6px;text-align:center;font-size:13px}
+table{
+ width:100%;
+ border-collapse:collapse;
+ margin-top:10px
+}
+th,td{
+ border:1px solid #ccc;
+ padding:6px;
+ text-align:center
+}
 th{background:#eef4fb}
-.section{margin-bottom:40px}
 
-.small{font-size:12px;color:#555}
 button{
- padding:6px 14px;
- background:#1f4e79;
+ padding:5px 12px;
+ background:#c62828;
  color:#fff;
  border:none;
- cursor:pointer;
+ cursor:pointer
+}
+
+.back{
+ background:#1f4e79;
  margin-bottom:10px
 }
 </style>
@@ -30,205 +40,115 @@ button{
 <body>
 <div class="container">
 
-<h2>Admin Data Viewer – ASME B31.3</h2>
+<h2>Admin Data – ASME B31.3</h2>
 
-<button onclick="location.href='admin-entry.html'">⬅ Back to Admin Entry</button>
+<button class="back" onclick="location.href='admin-entry.html'">
+⬅ Back to Admin Entry
+</button>
 
-<!-- ================================================= -->
-<!-- MATERIAL MASTER -->
-<!-- ================================================= -->
-<div class="section">
+<!-- ================= MATERIAL MASTER ================= -->
 <h3>Material Master</h3>
+<div id="materialTable"></div>
 
-<table>
-<thead>
-<tr>
-<th>Code & Standard</th>
-<th>Material Family</th>
-<th>Material</th>
-<th>Grade</th>
-</tr>
-</thead>
-<tbody id="materialTable"></tbody>
-</table>
-</div>
-
-<!-- ================================================= -->
-<!-- PIPE TYPE MASTER -->
-<!-- ================================================= -->
-<div class="section">
+<!-- ================= PIPE TYPE ================= -->
 <h3>Pipe Type Master (E Factor)</h3>
+<div id="pipeTypeTable"></div>
 
-<table>
-<thead>
-<tr>
-<th>Pipe Type</th>
-<th>E Factor</th>
-</tr>
-</thead>
-<tbody id="pipeTypeTable"></tbody>
-</table>
-</div>
+<!-- ================= DIMENSIONS ================= -->
+<h3>Dimensions & Weights (B36.10 / B36.19)</h3>
+<div id="dimTable"></div>
 
-<!-- ================================================= -->
-<!-- DIMENSIONS & WEIGHTS -->
-<!-- ================================================= -->
-<div class="section">
-<h3>Dimensions and Weights of Welded and Seamless Wrought Steel Pipe</h3>
-<div class="small">
-As per ASME B36.10 / ASME B36.19 (Based on Material Master)
-</div>
-
-<table>
-<thead>
-<tr>
-<th>Code</th>
-<th>Material Family</th>
-<th>Material</th>
-<th>Grade</th>
-<th>NPS</th>
-<th>Identification</th>
-<th>Schedule</th>
-<th>OD (mm)</th>
-<th>Thickness (mm)</th>
-<th>Weight (kg/m)</th>
-</tr>
-</thead>
-<tbody id="dimTable"></tbody>
-</table>
-</div>
-
-<!-- ================================================= -->
-<!-- Y FACTOR -->
-<!-- ================================================= -->
-<div class="section">
+<!-- ================= Y FACTOR ================= -->
 <h3>Y Factor – ASME B31.3</h3>
+<div id="yTable"></div>
 
-<table>
-<thead>
-<tr>
-<th>Material (Family | Material)</th>
-<th>Temperature (°C)</th>
-<th>Y Factor</th>
-</tr>
-</thead>
-<tbody id="yTable"></tbody>
-</table>
-</div>
-
-<!-- ================================================= -->
-<!-- W FACTOR -->
-<!-- ================================================= -->
-<div class="section">
+<!-- ================= W FACTOR ================= -->
 <h3>W Factor – ASME B31.3</h3>
+<div id="wTable"></div>
 
-<table>
-<thead>
-<tr>
-<th>Material (Family | Material)</th>
-<th>Temperature (°C)</th>
-<th>W Factor</th>
-</tr>
-</thead>
-<tbody id="wTable"></tbody>
-</table>
-</div>
-
-<!-- ================================================= -->
-<!-- STRESS -->
-<!-- ================================================= -->
-<div class="section">
+<!-- ================= STRESS ================= -->
 <h3>Material Basic Allowable Stress (S)</h3>
-
-<table>
-<thead>
-<tr>
-<th>Material</th>
-<th>Temperature (°C)</th>
-<th>Allowable Stress (MPa)</th>
-</tr>
-</thead>
-<tbody id="sTable"></tbody>
-</table>
-</div>
+<div id="stressTable"></div>
 
 </div>
 
 <script>
-/* ================= LOAD DATABASES ================= */
-const materialMasterDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
-const pipeTypeDB       = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
-const pipeDimWeightDB  = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
-const yDB              = JSON.parse(localStorage.getItem("yDB")) || [];
-const wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
-const stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
+/* ================= LOAD DATABASE ================= */
+let materialMasterDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
+let pipeTypeDB       = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
+let pipeDimWeightDB  = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
+let yDB              = JSON.parse(localStorage.getItem("yDB")) || [];
+let wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
+let stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-/* ================= MATERIAL MASTER ================= */
-materialMasterDB.forEach(m=>{
- materialTable.innerHTML+=`
- <tr>
-  <td>${m.code}</td>
-  <td>${m.family}</td>
-  <td>${m.mat}</td>
-  <td>${m.grade}</td>
- </tr>`;
-});
+/* ================= RENDER TABLE ================= */
+function renderTable(data, containerId, dbName){
+ if(data.length===0){
+  document.getElementById(containerId).innerHTML="<i>No data available</i>";
+  return;
+ }
 
-/* ================= PIPE TYPE ================= */
-pipeTypeDB.forEach(p=>{
- pipeTypeTable.innerHTML+=`
- <tr>
-  <td>${p.type}</td>
-  <td>${p.E}</td>
- </tr>`;
-});
+ let html="<table><tr>";
+ Object.keys(data[0]).forEach(k=>html+=`<th>${k}</th>`);
+ html+="<th>Action</th></tr>";
 
-/* ================= DIMENSIONS ================= */
-pipeDimWeightDB.forEach(d=>{
- dimTable.innerHTML+=`
- <tr>
-  <td>${d.code}</td>
-  <td>${d.family}</td>
-  <td>${d.material}</td>
-  <td>${d.grade}</td>
-  <td>${d.nps}</td>
-  <td>${d.identification || "—"}</td>
-  <td>${d.schedule || "—"}</td>
-  <td>${d.od}</td>
-  <td>${d.thickness}</td>
-  <td>${d.weight}</td>
- </tr>`;
-});
+ data.forEach((row,i)=>{
+  html+="<tr>";
+  Object.values(row).forEach(v=>html+=`<td>${v}</td>`);
+  html+=`
+   <td>
+    <button onclick="deleteRow('${dbName}',${i})">Delete</button>
+   </td>
+  </tr>`;
+ });
 
-/* ================= Y FACTOR ================= */
-yDB.forEach(y=>{
- yTable.innerHTML+=`
- <tr>
-  <td>${y.mat}</td>
-  <td>${y.temp}</td>
-  <td>${y.Y}</td>
- </tr>`;
-});
+ html+="</table>";
+ document.getElementById(containerId).innerHTML=html;
+}
 
-/* ================= W FACTOR ================= */
-wDB.forEach(w=>{
- wTable.innerHTML+=`
- <tr>
-  <td>${w.mat}</td>
-  <td>${w.temp}</td>
-  <td>${w.W}</td>
- </tr>`;
-});
+/* ================= DELETE ================= */
+function deleteRow(dbName,index){
+ if(!confirm("Are you sure you want to delete this record?")) return;
 
-/* ================= STRESS ================= */
-stressDB.forEach(s=>{
- sTable.innerHTML+=`
- <tr>
-  <td>${s.mat}</td>
-  <td>${s.temp}</td>
-  <td>${s.stress}</td>
- </tr>`;
-});
+ if(dbName==="material"){
+  materialMasterDB.splice(index,1);
+  localStorage.setItem("materialMasterDB",JSON.stringify(materialMasterDB));
+ }
+ if(dbName==="pipeType"){
+  pipeTypeDB.splice(index,1);
+  localStorage.setItem("pipeTypeDB",JSON.stringify(pipeTypeDB));
+ }
+ if(dbName==="dim"){
+  pipeDimWeightDB.splice(index,1);
+  localStorage.setItem("pipeDimWeightDB",JSON.stringify(pipeDimWeightDB));
+ }
+ if(dbName==="y"){
+  yDB.splice(index,1);
+  localStorage.setItem("yDB",JSON.stringify(yDB));
+ }
+ if(dbName==="w"){
+  wDB.splice(index,1);
+  localStorage.setItem("wDB",JSON.stringify(wDB));
+ }
+ if(dbName==="stress"){
+  stressDB.splice(index,1);
+  localStorage.setItem("stressDB",JSON.stringify(stressDB));
+ }
+
+ loadAll();
+}
+
+/* ================= LOAD ALL ================= */
+function loadAll(){
+ renderTable(materialMasterDB,"materialTable","material");
+ renderTable(pipeTypeDB,"pipeTypeTable","pipeType");
+ renderTable(pipeDimWeightDB,"dimTable","dim");
+ renderTable(yDB,"yTable","y");
+ renderTable(wDB,"wTable","w");
+ renderTable(stressDB,"stressTable","stress");
+}
+
+loadAll();
 </script>
 
 </body>
