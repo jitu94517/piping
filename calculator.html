@@ -15,9 +15,8 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
 .align{font-family:monospace;white-space:pre}
 .justify{background:#f9fafc;padding:12px;border-left:4px solid #1f4e79}
-.warn{background:#fff3cd;padding:10px;border-left:4px solid #ffa000;margin-top:10px}
+.warn{background:#fdecea;color:#b71c1c;padding:12px;border-left:4px solid #b71c1c;margin-top:15px}
 
-/* ===== Formula Styling (BOOK STYLE) ===== */
 .formula-box{
   margin-top:10px;
   font-family:"Times New Roman", serif;
@@ -26,7 +25,6 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .fraction{
   display:inline-block;
   text-align:center;
-  vertical-align:middle;
 }
 .fraction .num{
   display:block;
@@ -66,7 +64,6 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 <label>Mill Tolerance (%)</label>
 <input id="MT" value="12.5">
 
-<!-- AUTO PICK PREVIEW -->
 <div class="preview">
 <b>Auto Picked (Preview):</b>
 <div class="align">
@@ -89,7 +86,6 @@ Y   = <span id="pY">–</span>
 </div>
 
 <script>
-/* ===== DATABASE ===== */
 const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
 const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
 const dimDB = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
@@ -97,22 +93,19 @@ const yDB = JSON.parse(localStorage.getItem("yDB")) || [];
 const wDB = JSON.parse(localStorage.getItem("wDB")) || [];
 const sDB = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-/* ===== HELPERS ===== */
 const nearestHigherTemp = (arr,temp)=>
  arr.filter(x=>x.temp>=temp).sort((a,b)=>a.temp-b.temp)[0];
 
 const nearestHigherThickness = (arr,val)=>
  arr.filter(x=>x>=val).sort((a,b)=>a-b)[0];
 
-function labelOf(row){
- if(row.schedule && row.identification)
-  return `Sch ${row.schedule} OR ${row.identification}`;
- if(row.schedule) return `Sch ${row.schedule}`;
- if(row.identification) return row.identification;
+function labelOf(r){
+ if(r.schedule && r.identification) return `Sch ${r.schedule} OR ${r.identification}`;
+ if(r.schedule) return `Sch ${r.schedule}`;
+ if(r.identification) return r.identification;
  return "standard thickness";
 }
 
-/* ===== INIT ===== */
 function init(){
  material.innerHTML="";
  materialDB.forEach(m=>{
@@ -125,13 +118,9 @@ function init(){
  });
 
  updateNPS();
- updatePreview();
 }
 
-material.onchange=()=>{updateNPS();updatePreview();}
-pipeType.onchange=updatePreview;
-nps.onchange=updatePreview;
-T.oninput=updatePreview;
+material.onchange=updateNPS;
 
 function updateNPS(){
  const list=[...new Set(dimDB.filter(d=>d.material===material.value).map(d=>d.nps))];
@@ -139,28 +128,6 @@ function updateNPS(){
  list.forEach(n=>nps.innerHTML+=`<option>${n}</option>`);
 }
 
-function updatePreview(){
- if(!nps.value||!T.value)return;
-
- const mat=material.value;
- const Tval=+T.value;
- const E=+pipeType.value;
-
- const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
- const Srow=nearestHigherTemp(sDB.filter(s=>s.mat.includes(mat)),Tval);
- const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
- const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
-
- if(!odRow||!Srow||!Yrow||!Wrow)return;
-
- pOD.innerText=odRow.od.toFixed(2);
- pS.innerText=Srow.stress.toFixed(2);
- pE.innerText=E;
- pW.innerText=Wrow.W;
- pY.innerText=Yrow.Y;
-}
-
-/* ===== CALCULATION ===== */
 function calculate(){
  rangeWarn.style.display="none";
 
@@ -189,9 +156,7 @@ function calculate(){
 
  if(!t2){
   rangeWarn.style.display="block";
-  rangeWarn.innerHTML=
-   `⚠ Calculated thickness (${t_req.toFixed(2)} mm) exceeds available thickness range for selected NPS.
-    Please review design inputs or update pipe dimension database.`;
+  rangeWarn.innerHTML=`⚠ Calculated thickness (${t_req.toFixed(2)} mm) exceeds available thickness range for selected NPS. Please review design inputs or update pipe dimension database.`;
   return;
  }
 
@@ -199,36 +164,13 @@ function calculate(){
  let suggested=row2;
 
  if(!row2.schedule && !row2.identification){
-  suggested=avail
-   .filter(d=>(d.schedule||d.identification)&&d.thickness>t2)
+  suggested=avail.filter(d=>(d.schedule||d.identification)&&d.thickness>t2)
    .sort((a,b)=>a.thickness-b.thickness)[0];
  }
 
  const margin=((suggested.thickness-t_req)/t_req)*100;
+ const codeRef = row2.code === "B36.19" ? "ASME B36.19" : "ASME B36.10";
 
- /* ===== AUTO PICKED + FORMULA ===== */
- autoPicked.style.display="block";
- autoPicked.innerHTML=`
-<b>Auto Picked Values (ASME B31.3):</b>
-<div class="align">
-OD  = ${odRow.od} mm
-S   = ${Srow.stress} MPa (at ${Srow.temp}°C)
-E   = ${E}
-W   = ${Wrow.W} (at ${Wrow.temp}°C)
-Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
-</div>
-
-<div class="formula-box">
-<b>ASME B31.3 Thickness Formula:</b><br><br>
-t =
-<span class="fraction">
- <span class="num">P × D</span>
- <span class="den">2 × ( S × E × W + P × Y )</span>
-</span>
-</div>
-`;
-
- /* ===== RESULTS ===== */
  out.style.display="block";
  out.innerHTML=`
 <b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
@@ -241,25 +183,19 @@ ${suggested.thickness} mm (${labelOf(suggested)})
  marginBox.style.display="block";
  marginBox.innerHTML=`<b>Design Margin:</b> ${margin.toFixed(1)} %`;
 
- /* ===== JUSTIFICATION (RESTORED) ===== */
  justifyBox.style.display="block";
  justifyBox.innerHTML=`
 <b>Thickness Justification:</b><br><br>
 
-The minimum required wall thickness as per <b>ASME B31.3</b>,
-considering a design pressure of <b>${P.value} bar</b>,
-design temperature of <b>${T.value}°C</b>,
-corrosion allowance of <b>${CAval} mm</b>
-and mill tolerance of <b>${MT.value}%</b>,
-is calculated as <b>${t_req.toFixed(2)} mm</b>.<br><br>
+The minimum required wall thickness has been calculated in accordance with
+<b>ASME B31.3</b>, considering the specified design pressure, design temperature,
+corrosion allowance and mill tolerance.<br><br>
 
-The nearest higher available standard thickness is
-<b>${row2.thickness} mm (${labelOf(row2)})</b>.
-However, for standardization and ease of procurement,
-<b>${suggested.thickness} mm (${labelOf(suggested)})</b>
-has been selected for the piping system.<br><br>
-
-This selection provides a design margin of
+The nearest higher standard pipe thickness available as per
+<b>${codeRef}</b> is <b>${row2.thickness} mm</b>.
+For standardization, constructability and ease of procurement,
+the selected pipe thickness for the piping system is
+<b>${suggested.thickness} mm</b>, which provides an adequate design margin of
 <b>${margin.toFixed(1)}%</b>.
 `;
 }
