@@ -289,13 +289,31 @@ function calculate(){
 
  justifyBox.style.display="block";
  justifyBox.innerHTML=`
- <b>Thickness Justification</b><br><br>
- The pipe wall thickness has been determined in accordance
- with <b>ASME B31.3</b>, considering the specified design
- pressure, temperature, corrosion allowance and mill tolerance.
- The selected wall thickness provides adequate margin and
- complies with <b>${standard}</b>.
- `;
+<b>Thickness Justification (Client-Ready):</b><br><br>
+
+The minimum required wall thickness of the pipe has been
+calculated in accordance with <b>ASME B31.3 – Process Piping</b>,
+considering a design pressure of <b>${P.value} bar</b>,
+design temperature of <b>${T.value}°C</b>,
+corrosion allowance of <b>${CAval} mm</b>
+and mill tolerance of <b>${MT.value}%</b>.<br><br>
+
+Based on the above design criteria, the calculated minimum
+required thickness is <b>${t_req.toFixed(2)} mm</b>,
+including corrosion allowance and mill tolerance.<br><br>
+
+The nearest higher available standard wall thickness has been
+identified from <b>${standard}</b> for the selected nominal pipe size.<br><br>
+
+For standardization, ease of procurement and fabrication
+suitability, a wall thickness of
+<b>${suggested.thickness} mm (${labelOf(suggested)})</b>
+has been selected for the piping system.<br><br>
+
+This selection provides a design margin of
+<b>${margin.toFixed(1)}%</b>, which is considered adequate
+for safe and reliable operation of the piping system.
+`;
 }
 
 init();
@@ -303,3 +321,4 @@ init();
 
 </body>
 </html>
+
