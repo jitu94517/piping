@@ -214,10 +214,21 @@ Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
 </div>
 <div class="formula-box">
 <b>ASME B31.3 Thickness Formula:</b><br><br>
+
 t =
 <span class="fraction">
  <span class="num">P × D</span>
  <span class="den">2 × ( S × E × W + P × Y )</span>
+</span>
+
+<br><br>
+
+<b>Required Thickness (Including Corrosion Allowance & Mill Tolerance):</b><br><br>
+
+Required&nbsp;t =
+<span class="fraction">
+ <span class="num">t + Corrosion Allowance</span>
+ <span class="den">1 − Mill Tolerance</span>
 </span>
 </div>
 `;
@@ -296,3 +307,4 @@ init();
 
 </body>
 </html>
+
