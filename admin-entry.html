@@ -6,22 +6,29 @@
 
 <style>
 body{font-family:Arial;background:#f2f4f7}
-.container{max-width:1200px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
+.container{max-width:1300px;margin:20px auto;background:#fff;padding:20px;border-radius:8px}
 h2{text-align:center;color:#1f4e79}
-h3{color:#1f4e79;margin-top:25px}
-
-.hint{font-size:12px;color:#777;margin-bottom:4px}
-.helper{font-size:12px;margin:-6px 0 10px}
-.helper.info{color:#1565c0}
-.helper.warn{color:#d32f2f}
-.helper.ok{color:#2e7d32}
-
+h3{color:#1f4e79;margin-top:30px}
 label{font-weight:bold}
-input,select{width:100%;padding:6px;margin:5px 0 4px}
-button{padding:6px 14px;background:#1f4e79;color:#fff;border:none;cursor:pointer;margin-right:5px}
-.hidden{display:none}
-hr{margin:25px 0}
 
+input,select{
+ width:100%;padding:6px;margin:5px 0 10px
+}
+
+button{
+ padding:6px 16px;
+ background:#1f4e79;
+ color:#fff;border:none;
+ cursor:pointer
+}
+
+hr{margin:30px 0}
+.hidden{display:none}
+
+/* helper */
+.helper{font-size:12px;margin-top:-6px;margin-bottom:10px;color:#555}
+
+/* toast */
 #toast{
  position:fixed;bottom:20px;right:20px;
  background:#1f4e79;color:#fff;
@@ -39,7 +46,7 @@ hr{margin:25px 0}
 
 <!-- LOGIN -->
 <div id="loginBox">
-<div class="hint">Admin Password</div>
+<label>Admin Password</label>
 <input type="password" id="adminPass">
 <button onclick="login()">Login</button>
 </div>
@@ -47,14 +54,21 @@ hr{margin:25px 0}
 <div id="panel" class="hidden">
 
 <!-- ================================================= -->
-<!-- MATERIAL MASTER -->
+<!-- MATERIAL MASTER (ROOT) -->
 <!-- ================================================= -->
-<h3>Material Master</h3>
+<h3>1️⃣ Material Master (Pipe Master)</h3>
 
-<input id="mmCode" placeholder="Code & Standard (ASME B36.10 / ASME B36.19)">
-<input id="mmFamily" placeholder="Material Family (Carbon Steel / Stainless Steel)">
-<input id="mmMaterial" placeholder="Material (CS, LTCS, HTCS, SS etc.)">
-<input id="mmGrade" placeholder="Grade (A106 Gr.B, A312 TP304 etc.)">
+<label>Code & Standard</label>
+<input id="mmCode" placeholder="ASME B36.10 / ASME B36.19">
+
+<label>Material Family</label>
+<input id="mmFamily" placeholder="Carbon Steel / Stainless Steel">
+
+<label>Material</label>
+<input id="mmMaterial" placeholder="CS / LTCS / SS / Alloy Steel">
+
+<label>Grade</label>
+<input id="mmGrade" placeholder="A106 Gr.B / A312 TP304">
 
 <button onclick="saveMaterial()">Save Material</button>
 
@@ -63,10 +77,14 @@ hr{margin:25px 0}
 <!-- ================================================= -->
 <!-- PIPE TYPE MASTER -->
 <!-- ================================================= -->
-<h3>Pipe Type Master (E Factor)</h3>
+<h3>2️⃣ Pipe Type Master (E Factor)</h3>
 
-<input id="ptypeNames" placeholder="Pipe Types (Seamless, ERW)">
-<input id="ptypeEs" placeholder="E Factors (1.0, 0.85)">
+<label>Pipe Types (comma separated)</label>
+<input id="ptypeNames" placeholder="Seamless, ERW, LSAW">
+
+<label>E Factors (comma separated)</label>
+<input id="ptypeEs" placeholder="1.0, 0.85, 0.95">
+
 <button onclick="savePipeType()">Save Pipe Type</button>
 
 <hr>
@@ -74,62 +92,55 @@ hr{margin:25px 0}
 <!-- ================================================= -->
 <!-- DIMENSIONS & WEIGHTS -->
 <!-- ================================================= -->
-<h3>Dimensions and Weights of Welded and Seamless Wrought Steel Pipe</h3>
+<h3>3️⃣ Dimensions and Weights of Welded and Seamless Wrought Steel Pipe</h3>
 
-<div class="hint">
-Rules:<br>
-• Total rows = commas + 1<br>
-• Blank allowed using <b>,,</b> for Identification & Schedule<br>
-• All fields must have same number of rows
+<div class="helper">
+Rule: All comma-based fields must have same number of entries  
+Blank allowed using ,, for NON-schedule / NON-identification
 </div>
 
 <label>Code & Standard</label>
-<select id="dwCode"></select>
+<select id="dwCode" onchange="loadDWMaterials()"></select>
 
 <label>Material Family</label>
-<select id="dwFamily"></select>
+<select id="dwFamily" onchange="loadDWMaterials()"></select>
 
 <label>Material</label>
-<select id="dwMaterial"></select>
+<select id="dwMaterial" onchange="loadDWMaterials()"></select>
 
 <label>Grade</label>
 <select id="dwGrade"></select>
 
 <label>NPS (DN) – comma separated</label>
-<input id="dwNps" oninput="helperCheck()" placeholder="e.g. 4,4,4,4">
-<div id="hNps" class="helper info"></div>
+<input id="dwNps" placeholder="2,2,2,2">
 
-<label>Identification – comma separated (blank allowed)</label>
-<input id="dwIdent" oninput="helperCheck()" placeholder="Example: ,,,  or  STD,,XS">
-<div id="hIdent" class="helper info"></div>
+<label>Identification – comma separated</label>
+<input id="dwIdent" placeholder=",,STD,XS">
 
-<label>Schedule No. – comma separated (blank allowed)</label>
-<input id="dwSch" oninput="helperCheck()" placeholder="Example: 5,,10,30">
-<div id="hSch" class="helper info"></div>
+<label>Schedule No. – comma separated</label>
+<input id="dwSch" placeholder="5,,10,30">
 
 <label>Outside Diameter (mm) – comma separated</label>
-<input id="dwOD" oninput="helperCheck()" placeholder="114.3,114.3,114.3,114.3">
-<div id="hOD" class="helper info"></div>
+<input id="dwOD" placeholder="60.3,60.3,60.3,60.3">
 
 <label>Wall Thickness (mm) – comma separated</label>
-<input id="dwThk" oninput="helperCheck()" placeholder="3.91,4.78,6.35,7.01">
-<div id="hThk" class="helper info"></div>
+<input id="dwThk" placeholder="3.91,4.78,6.35,7.01">
 
 <label>Plain End Weight (kg/m) – comma separated</label>
-<input id="dwWt" oninput="helperCheck()" placeholder="5.44,6.63,8.62,9.54">
-<div id="hWt" class="helper info"></div>
+<input id="dwWt" placeholder="5.44,6.63,8.62,9.54">
 
-<button onclick="saveDimWeight()">Save Dimensions & Weights</button>
+<button onclick="saveDimensions()">Save Dimensions & Weights</button>
 
 <hr>
 
 <!-- ================================================= -->
 <!-- Y FACTOR -->
 <!-- ================================================= -->
-<h3>Y Factor – ASME B31.3</h3>
+<h3>4️⃣ Y Factor – ASME B31.3</h3>
+
 <select id="yMaterial"></select>
 <input id="yTemps" placeholder="Temperature °C (100,200,300)">
-<input id="yValues" placeholder="Y Values (0.4,0.45,0.5)">
+<input id="yValues" placeholder="Y values (0.4,0.45,0.5)">
 <button onclick="saveY()">Save Y</button>
 
 <hr>
@@ -137,10 +148,11 @@ Rules:<br>
 <!-- ================================================= -->
 <!-- W FACTOR -->
 <!-- ================================================= -->
-<h3>W Factor – ASME B31.3</h3>
+<h3>5️⃣ W Factor – ASME B31.3</h3>
+
 <select id="wMaterial"></select>
 <input id="wTemps" placeholder="Temperature °C (100,200,300)">
-<input id="wValues" placeholder="W Values (1.0,0.95,0.9)">
+<input id="wValues" placeholder="W values (1.0,0.95,0.9)">
 <button onclick="saveW()">Save W</button>
 
 <hr>
@@ -148,7 +160,8 @@ Rules:<br>
 <!-- ================================================= -->
 <!-- STRESS -->
 <!-- ================================================= -->
-<h3>Material Basic Allowable Stress (S)</h3>
+<h3>6️⃣ Material Basic Allowable Stress (S)</h3>
+
 <select id="sMaterial"></select>
 <input id="sTemps" placeholder="Temperature °C (50,100,200)">
 <input id="sValues" placeholder="Stress MPa (138,130,120)">
@@ -167,21 +180,29 @@ Rules:<br>
 /* ================= AUTH ================= */
 const PASSWORD="admin123";
 
-/* ================= DB ================= */
+/* ================= DATABASE ================= */
 let materialMasterDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
-let pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
-let pipeDimWeightDB = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
-let yDB = JSON.parse(localStorage.getItem("yDB")) || [];
-let wDB = JSON.parse(localStorage.getItem("wDB")) || [];
-let stressDB = JSON.parse(localStorage.getItem("stressDB")) || [];
+let pipeTypeDB       = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
+let pipeDimWeightDB  = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
+let yDB              = JSON.parse(localStorage.getItem("yDB")) || [];
+let wDB              = JSON.parse(localStorage.getItem("wDB")) || [];
+let stressDB         = JSON.parse(localStorage.getItem("stressDB")) || [];
 
 /* ================= UTIL ================= */
 const split = v => v.split(",").map(x=>x.trim());
-const toast = msg => {
+const toast = msg=>{
  const t=document.getElementById("toast");
- t.innerText=msg;
- t.classList.add("show");
+ t.innerText=msg; t.classList.add("show");
  setTimeout(()=>t.classList.remove("show"),2000);
+};
+const saveAll = ()=>{
+ localStorage.setItem("materialMasterDB",JSON.stringify(materialMasterDB));
+ localStorage.setItem("pipeTypeDB",JSON.stringify(pipeTypeDB));
+ localStorage.setItem("pipeDimWeightDB",JSON.stringify(pipeDimWeightDB));
+ localStorage.setItem("yDB",JSON.stringify(yDB));
+ localStorage.setItem("wDB",JSON.stringify(wDB));
+ localStorage.setItem("stressDB",JSON.stringify(stressDB));
+ populateDropdowns();
 };
 
 /* ================= LOGIN ================= */
@@ -201,64 +222,31 @@ function saveMaterial(){
   mat:mmMaterial.value,
   grade:mmGrade.value
  });
- persist();
- toast("Material saved");
+ saveAll(); toast("Material saved");
  mmCode.value=mmFamily.value=mmMaterial.value=mmGrade.value="";
- populateDropdowns();
 }
 
 /* ================= PIPE TYPE ================= */
 function savePipeType(){
  const p=split(ptypeNames.value), e=split(ptypeEs.value);
- if(p.length!==e.length){alert("Mismatch in Pipe Type & E");return;}
+ if(p.length!==e.length){alert("Mismatch");return;}
  p.forEach((x,i)=>pipeTypeDB.push({type:x,E:+e[i]}));
- persist(); toast("Pipe type saved");
+ saveAll(); toast("Pipe type saved");
  ptypeNames.value=ptypeEs.value="";
 }
 
-/* ================= HELPER ================= */
-function helperCheck(){
- const fields={
-  NPS:split(dwNps.value),
-  IDENT:split(dwIdent.value),
-  SCH:split(dwSch.value),
-  OD:split(dwOD.value),
-  THK:split(dwThk.value),
-  WT:split(dwWt.value)
- };
- const counts=Object.values(fields).map(a=>a.length);
- const max=Math.max(...counts);
-
- const msg=(id,text,type)=>{
-  const el=document.getElementById(id);
-  el.innerText=text; el.className="helper "+type;
- };
-
- msg("hNps",`Rows: ${fields.NPS.length}`,"info");
- msg("hIdent","Blank allowed using ,,","info");
- msg("hSch","Blank = NON-schedule","info");
- msg("hOD",`Rows: ${fields.OD.length}`,"info");
- msg("hThk",`Rows: ${fields.THK.length}`,"info");
- msg("hWt",`Rows: ${fields.WT.length}`,"info");
-
- if(!counts.every(c=>c===max)){
-  msg("hWt","⚠ All fields must have same number of rows","warn");
- }
-}
-
-/* ================= SAVE DIMENSIONS ================= */
-function saveDimWeight(){
+/* ================= DIMENSIONS ================= */
+function saveDimensions(){
  const nps=split(dwNps.value),
-       ident=split(dwIdent.value),
-       sch=split(dwSch.value),
-       od=split(dwOD.value),
-       thk=split(dwThk.value),
-       wt=split(dwWt.value);
+ ident=split(dwIdent.value),
+ sch=split(dwSch.value),
+ od=split(dwOD.value),
+ thk=split(dwThk.value),
+ wt=split(dwWt.value);
 
  const len=nps.length;
  if([ident,sch,od,thk,wt].some(a=>a.length!==len)){
-  alert("Comma count mismatch. Check helper messages.");
-  return;
+  alert("Comma count mismatch"); return;
  }
 
  for(let i=0;i<len;i++){
@@ -276,34 +264,27 @@ function saveDimWeight(){
   });
  }
 
- persist();
- toast("Dimensions & Weights saved");
+ saveAll(); toast("Dimensions saved");
  dwNps.value=dwIdent.value=dwSch.value=dwOD.value=dwThk.value=dwWt.value="";
 }
 
-/* ================= Y / W / S ================= */
-function saveY(){
- const t=split(yTemps.value), v=split(yValues.value);
- if(t.length!==v.length){alert("Temp & Y mismatch");return;}
+/* ================= Y / W / STRESS ================= */
+function saveY(){const t=split(yTemps.value),v=split(yValues.value);
+ if(t.length!==v.length){alert("Mismatch");return;}
  t.forEach((x,i)=>yDB.push({mat:yMaterial.value,temp:+x,Y:+v[i]}));
- persist(); toast("Y factor saved");
- yTemps.value=yValues.value="";
+ saveAll(); toast("Y saved"); yTemps.value=yValues.value="";
 }
 
-function saveW(){
- const t=split(wTemps.value), v=split(wValues.value);
- if(t.length!==v.length){alert("Temp & W mismatch");return;}
+function saveW(){const t=split(wTemps.value),v=split(wValues.value);
+ if(t.length!==v.length){alert("Mismatch");return;}
  t.forEach((x,i)=>wDB.push({mat:wMaterial.value,temp:+x,W:+v[i]}));
- persist(); toast("W factor saved");
- wTemps.value=wValues.value="";
+ saveAll(); toast("W saved"); wTemps.value=wValues.value="";
 }
 
-function saveStress(){
- const t=split(sTemps.value), v=split(sValues.value);
- if(t.length!==v.length){alert("Temp & Stress mismatch");return;}
+function saveStress(){const t=split(sTemps.value),v=split(sValues.value);
+ if(t.length!==v.length){alert("Mismatch");return;}
  t.forEach((x,i)=>stressDB.push({mat:sMaterial.value,temp:+x,stress:+v[i]}));
- persist(); toast("Stress saved");
- sTemps.value=sValues.value="";
+ saveAll(); toast("Stress saved"); sTemps.value=sValues.value="";
 }
 
 /* ================= DROPDOWNS ================= */
@@ -323,15 +304,7 @@ function populateDropdowns(){
  });
 }
 
-/* ================= SAVE ================= */
-function persist(){
- localStorage.setItem("materialMasterDB",JSON.stringify(materialMasterDB));
- localStorage.setItem("pipeTypeDB",JSON.stringify(pipeTypeDB));
- localStorage.setItem("pipeDimWeightDB",JSON.stringify(pipeDimWeightDB));
- localStorage.setItem("yDB",JSON.stringify(yDB));
- localStorage.setItem("wDB",JSON.stringify(wDB));
- localStorage.setItem("stressDB",JSON.stringify(stressDB));
-}
+function loadDWMaterials(){/* kept for future filter enhancement */}
 </script>
 
 </body>
