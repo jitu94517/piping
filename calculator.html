@@ -245,7 +245,7 @@ It is recommended to review pipe size, design conditions
 or update the pipe dimension database.
 `;
   out.style.display="block";
-  out.innerHTML=`<b>Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm`;
+  out.innerHTML=`<b>Calculated Minimum Required Thickness:</b> ${t_req.toFixed(2)} mm`;
   marginBox.style.display="block";
   marginBox.innerHTML="<b>Design Margin:</b> Not Applicable";
   return;
@@ -263,10 +263,10 @@ or update the pipe dimension database.
 
  out.style.display="block";
  out.innerHTML=`
-<b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
+<b>1️⃣ Calculated Minimum Required Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
 <b>2️⃣ Nearest Higher Thickness (Standard):</b>
 ${row2.thickness} mm (${labelOf(row2)})<br><br>
-<b>3️⃣ Suggested Thickness for Piping System:</b>
+<b>3️⃣ Suggested Schedule and Thickness for Piping System:</b>
 ${suggested.thickness} mm (${labelOf(suggested)})
 `;
 
@@ -307,6 +307,7 @@ init();
 
 </body>
 </html>
+
 
 
 
