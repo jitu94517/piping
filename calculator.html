@@ -12,6 +12,30 @@ label{font-weight:bold}
 input,select{width:100%;padding:6px;margin:5px 0 12px}
 button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer}
 
+/* ===== Calculation Sheet Look ===== */
+.calc-sheet{
+ border:1px solid #1f4e79;
+ padding:14px;
+ margin:15px 0;
+ background:#fff
+}
+.calc-title{
+ font-weight:bold;
+ color:#1f4e79;
+ margin-bottom:8px;
+ border-bottom:1px solid #1f4e79;
+ padding-bottom:4px
+}
+.calc-row{
+ display:grid;
+ grid-template-columns:260px 20px auto;
+ font-family:monospace;
+ font-size:14px;
+ margin:3px 0
+}
+.calc-row span.eq{text-align:center}
+.calc-note{font-size:13px;line-height:1.6}
+
 .preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
 .align{font-family:monospace;white-space:pre}
 
@@ -19,10 +43,12 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .justify{background:#f9fafc;padding:14px;border-left:4px solid #1f4e79}
 .warn{background:#fdecea;color:#b71c1c;padding:12px;border-left:4px solid #b71c1c;margin-top:15px}
 
+/* ===== Formula ===== */
 .formula-box{
  margin-top:10px;
  font-family:"Times New Roman", serif;
- font-size:16px
+ font-size:16px;
+ text-align:center
 }
 .fraction{
  display:inline-block;
@@ -67,9 +93,9 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 <label>Mill Tolerance (%)</label>
 <input id="MT" value="12.5">
 
-<!-- AUTO PICK PREVIEW -->
+<!-- ===== PREVIEW ===== -->
 <div class="preview">
-<b>Preliminary Design Inputs (ASME B31.3):</b>
+<b>Preliminary Design Inputs (ASME B31.3)</b>
 <div class="align">
 OD  = <span id="pOD">–</span> mm
 S   = <span id="pS">–</span> MPa
@@ -81,10 +107,12 @@ Y   = <span id="pY">–</span>
 
 <button onclick="calculate()">Calculate Thickness</button>
 
-<div class="result" id="autoPicked" style="display:none"></div>
-<div class="result" id="out" style="display:none"></div>
-<div class="result" id="marginBox" style="display:none"></div>
-<div class="justify" id="justifyBox" style="display:none"></div>
+<!-- ================= CALCULATION SHEET ================= -->
+
+<div class="calc-sheet" id="autoPicked" style="display:none"></div>
+<div class="calc-sheet" id="out" style="display:none"></div>
+<div class="calc-sheet" id="marginBox" style="display:none"></div>
+<div class="calc-sheet justify" id="justifyBox" style="display:none"></div>
 <div class="warn" id="rangeWarn" style="display:none"></div>
 
 </div>
@@ -116,7 +144,7 @@ function labelOf(row){
   return `Sch ${row.schedule} OR ${row.identification}`;
  if(row.schedule) return `Sch ${row.schedule}`;
  if(row.identification) return row.identification;
- return "standard thickness";
+ return "Standard thickness";
 }
 
 /* ================= INIT ================= */
@@ -152,7 +180,7 @@ function updateNPS(){
 function updatePreview(){
  if(!nps.value||!T.value)return;
 
- const [mat,family]=material.value.split("|");
+ const [mat]=material.value.split("|");
  const Tval=+T.value;
  const E=+pipeType.value;
 
@@ -202,52 +230,39 @@ function calculate(){
  const avail=dimDB.filter(d=>d.material===mat&&d.nps===nps.value);
  const t2=nearestHigherThickness(avail.map(d=>d.thickness),t_req);
 
+ /* ===== DESIGN INPUTS BLOCK ===== */
  autoPicked.style.display="block";
  autoPicked.innerHTML=`
-<b>Adopted Design Parameters (ASME B31.3):</b>
-<div class="align">
-OD  = ${odRow.od} mm
-S   = ${Srow.stress} MPa (at ${Srow.temp}°C)
-E   = ${E}
-W   = ${Wrow.W} (at ${Wrow.temp}°C)
-Y   = ${Yrow.Y} (at ${Yrow.temp}°C)
-</div>
-<div class="formula-box">
-<b>ASME B31.3 Thickness Formula:</b><br><br>
+ <div class="calc-title">Code-Based Design Inputs (ASME B31.3)</div>
+ <div class="calc-row"><span>Outside Diameter (D)</span><span class="eq">=</span><span>${odRow.od} mm</span></div>
+ <div class="calc-row"><span>Allowable Stress (S)</span><span class="eq">=</span><span>${Srow.stress} MPa</span></div>
+ <div class="calc-row"><span>Quality Factor (E)</span><span class="eq">=</span><span>${E}</span></div>
+ <div class="calc-row"><span>Weld Strength Factor (W)</span><span class="eq">=</span><span>${Wrow.W}</span></div>
+ <div class="calc-row"><span>Coefficient (Y)</span><span class="eq">=</span><span>${Yrow.Y}</span></div>
 
-t =
-<span class="fraction">
- <span class="num">P × D</span>
- <span class="den">2 × ( S × E × W + P × Y )</span>
-</span>
-
-<br><br>
-
-<b>Required Thickness (Including Corrosion Allowance & Mill Tolerance):</b><br><br>
-
-Required&nbsp;T<sub>req</sub> =
-<span class="fraction">
- <span class="num">t + Corrosion Allowance</span>
- <span class="den">1 − Mill Tolerance</span>
-</span>
-</div>
-`;
+ <div class="formula-box">
+ t =
+ <span class="fraction">
+  <span class="num">P × D</span>
+  <span class="den">2 × ( S × E × W + P × Y )</span>
+ </span>
+ <br><br>
+ T<sub>req</sub> =
+ <span class="fraction">
+  <span class="num">t + CA</span>
+  <span class="den">1 − MT</span>
+ </span>
+ </div>
+ `;
 
  if(!t2){
   rangeWarn.style.display="block";
   rangeWarn.innerHTML=`
-<b>Thickness Assessment Warning</b><br><br>
-The calculated minimum required wall thickness is
-<b>${t_req.toFixed(2)} mm</b>, which exceeds the available
-standard wall thickness range for the selected NPS
-as per <b>${standard}</b>.<br><br>
-It is recommended to review pipe size, design conditions
-or update the pipe dimension database.
-`;
-  out.style.display="block";
-  out.innerHTML=`<b>Calculated Minimum Required Thickness:</b> ${t_req.toFixed(2)} mm`;
-  marginBox.style.display="block";
-  marginBox.innerHTML="<b>Design Margin:</b> Not Applicable";
+  <b>Thickness Assessment Warning</b><br><br>
+  Calculated required thickness <b>${t_req.toFixed(2)} mm</b>
+  exceeds available standard thickness range
+  as per <b>${standard}</b>.
+  `;
   return;
  }
 
@@ -263,43 +278,24 @@ or update the pipe dimension database.
 
  out.style.display="block";
  out.innerHTML=`
-<b>1️⃣ Calculated Minimum Required Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
-<b>2️⃣ Nearest Higher Thickness (Standard):</b>
-${row2.thickness} mm (${labelOf(row2)})<br><br>
-<b>3️⃣ Suggested Schedule and Thickness for Piping System:</b>
-${suggested.thickness} mm (${labelOf(suggested)})
-`;
+ <div class="calc-title">Calculation Results</div>
+ <div class="calc-row"><span>Required Thickness (T<sub>req</sub>)</span><span class="eq">=</span><span>${t_req.toFixed(2)} mm</span></div>
+ <div class="calc-row"><span>Nearest Higher Standard Thickness</span><span class="eq">=</span><span>${row2.thickness} mm (${labelOf(row2)})</span></div>
+ <div class="calc-row"><span>Adopted Thickness</span><span class="eq">=</span><span>${suggested.thickness} mm (${labelOf(suggested)})</span></div>
+ `;
 
  marginBox.style.display="block";
- marginBox.innerHTML=`<b>Design Margin:</b> ${margin.toFixed(1)} %`;
+ marginBox.innerHTML=`<b>Design Margin Provided:</b> ${margin.toFixed(1)} %`;
 
  justifyBox.style.display="block";
  justifyBox.innerHTML=`
-<b>Thickness Justification (Client-Ready):</b><br><br>
-
-The minimum required wall thickness of the pipe has been
-calculated in accordance with <b>ASME B31.3 – Process Piping</b>,
-considering a design pressure of <b>${P.value} bar</b>,
-design temperature of <b>${T.value}°C</b>,
-corrosion allowance of <b>${CAval} mm</b>
-and mill tolerance of <b>${MT.value}%</b>.<br><br>
-
-Based on the above design criteria, the calculated minimum
-required thickness is <b>${t_req.toFixed(2)} mm</b>,
-including corrosion allowance and mill tolerance.<br><br>
-
-The nearest higher available standard wall thickness has been
-identified from <b>${standard}</b> for the selected nominal pipe size.<br><br>
-
-For standardization, ease of procurement and fabrication
-suitability, a wall thickness of
-<b>${suggested.thickness} mm (${labelOf(suggested)})</b>
-has been selected for the piping system.<br><br>
-
-This selection provides a design margin of
-<b>${margin.toFixed(1)}%</b>, which is considered adequate
-for safe and reliable operation of the piping system.
-`;
+ <b>Thickness Justification</b><br><br>
+ The pipe wall thickness has been determined in accordance
+ with <b>ASME B31.3</b>, considering the specified design
+ pressure, temperature, corrosion allowance and mill tolerance.
+ The selected wall thickness provides adequate margin and
+ complies with <b>${standard}</b>.
+ `;
 }
 
 init();
@@ -307,9 +303,3 @@ init();
 
 </body>
 </html>
-
-
-
-
-
-
