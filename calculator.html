@@ -14,27 +14,7 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 .result{background:#eef4fb;padding:12px;margin-top:15px;border-radius:6px}
 .preview{background:#f8fbff;border:1px dashed #1f4e79;padding:10px;margin:10px 0}
 .align{font-family:monospace;white-space:pre}
-.justify{background:#f9fafc;padding:12px;border-left:4px solid #1f4e79}
-.warn{background:#fdecea;color:#b71c1c;padding:12px;border-left:4px solid #b71c1c;margin-top:15px}
-
-.formula-box{
-  margin-top:10px;
-  font-family:"Times New Roman", serif;
-  font-size:16px;
-}
-.fraction{
-  display:inline-block;
-  text-align:center;
-}
-.fraction .num{
-  display:block;
-  padding:2px 12px;
-  border-bottom:2px solid #000;
-}
-.fraction .den{
-  display:block;
-  padding:2px 12px;
-}
+.warn{background:#fdecea;padding:10px;border-left:4px solid #c62828;margin-top:10px}
 </style>
 </head>
 
@@ -43,7 +23,7 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 
 <h2>ASME B31.3 – Pipe Thickness Calculator</h2>
 
-<label>Material (Material | Grade)</label>
+<label>Material</label>
 <select id="material"></select>
 
 <label>Pipe Type</label>
@@ -67,25 +47,23 @@ button{padding:8px 18px;background:#1f4e79;color:#fff;border:none;cursor:pointer
 <div class="preview">
 <b>Auto Picked (Preview):</b>
 <div class="align">
-OD  = <span id="pOD">–</span> mm
-S   = <span id="pS">–</span> MPa
-E   = <span id="pE">–</span>
-W   = <span id="pW">–</span>
-Y   = <span id="pY">–</span>
+OD = <span id="pOD">–</span> mm
+S  = <span id="pS">–</span> MPa
+E  = <span id="pE">–</span>
+W  = <span id="pW">–</span>
+Y  = <span id="pY">–</span>
 </div>
 </div>
 
 <button onclick="calculate()">Calculate Thickness</button>
 
-<div class="result" id="autoPicked" style="display:none"></div>
 <div class="result" id="out" style="display:none"></div>
-<div class="result" id="marginBox" style="display:none"></div>
-<div class="result justify" id="justifyBox" style="display:none"></div>
-<div class="warn" id="rangeWarn" style="display:none"></div>
+<div class="warn" id="warnBox" style="display:none"></div>
 
 </div>
 
 <script>
+/* ===== LOAD DATABASE ===== */
 const materialDB = JSON.parse(localStorage.getItem("materialMasterDB")) || [];
 const pipeTypeDB = JSON.parse(localStorage.getItem("pipeTypeDB")) || [];
 const dimDB = JSON.parse(localStorage.getItem("pipeDimWeightDB")) || [];
@@ -93,23 +71,18 @@ const yDB = JSON.parse(localStorage.getItem("yDB")) || [];
 const wDB = JSON.parse(localStorage.getItem("wDB")) || [];
 const sDB = JSON.parse(localStorage.getItem("stressDB")) || [];
 
-const nearestHigherTemp = (arr,temp)=>
- arr.filter(x=>x.temp>=temp).sort((a,b)=>a.temp-b.temp)[0];
+/* ===== HELPERS ===== */
+const nearestHigherTemp=(arr,t)=>arr.filter(x=>x.temp>=t).sort((a,b)=>a.temp-b.temp)[0];
+const nearestHigherThickness=(arr,t)=>arr.filter(x=>x>=t).sort((a,b)=>a-b)[0];
 
-const nearestHigherThickness = (arr,val)=>
- arr.filter(x=>x>=val).sort((a,b)=>a-b)[0];
-
-function labelOf(r){
- if(r.schedule && r.identification) return `Sch ${r.schedule} OR ${r.identification}`;
- if(r.schedule) return `Sch ${r.schedule}`;
- if(r.identification) return r.identification;
- return "standard thickness";
-}
-
+/* ===== INIT ===== */
 function init(){
  material.innerHTML="";
  materialDB.forEach(m=>{
-  material.innerHTML+=`<option value="${m.mat}">${m.mat} ${m.grade}</option>`;
+  material.innerHTML+=`
+   <option value="${m.family}|${m.mat}|${m.grade}">
+    ${m.family} | ${m.mat} | ${m.grade}
+   </option>`;
  });
 
  pipeType.innerHTML="";
@@ -119,87 +92,75 @@ function init(){
 
  updateNPS();
 }
-
 material.onchange=updateNPS;
 
 function updateNPS(){
- const list=[...new Set(dimDB.filter(d=>d.material===material.value).map(d=>d.nps))];
+ const [family,mat,grade]=material.value.split("|");
+ const list=[...new Set(
+  dimDB.filter(d=>d.family===family && d.material===mat && d.grade===grade)
+       .map(d=>d.nps)
+ )];
  nps.innerHTML="<option value=''>-- Select NPS --</option>";
  list.forEach(n=>nps.innerHTML+=`<option>${n}</option>`);
 }
 
+/* ===== CALCULATE ===== */
 function calculate(){
- rangeWarn.style.display="none";
+ warnBox.style.display="none";
+ out.style.display="none";
 
  if(!nps.value||!P.value||!T.value){
-  alert("Please fill all mandatory inputs");
+  alert("Please fill mandatory inputs");
   return;
  }
 
- const mat=material.value;
+ const [family,mat,grade]=material.value.split("|");
  const E=+pipeType.value;
  const Pmpa=+P.value/10;
  const Tval=+T.value;
  const CAval=+CA.value;
  const MTval=+MT.value/100;
 
- const odRow=dimDB.find(d=>d.material===mat&&d.nps===nps.value);
- const Srow=nearestHigherTemp(sDB.filter(s=>s.mat.includes(mat)),Tval);
- const Yrow=nearestHigherTemp(yDB.filter(y=>y.mat.includes(mat)),Tval);
- const Wrow=nearestHigherTemp(wDB.filter(w=>w.mat.includes(mat)),Tval);
+ const avail=dimDB.filter(d=>
+  d.family===family &&
+  d.material===mat &&
+  d.grade===grade &&
+  d.nps===nps.value
+ );
+
+ const odRow=avail[0];
+ const Srow=nearestHigherTemp(
+  sDB.filter(s=>s.mat.includes(grade)),Tval);
+ const Yrow=nearestHigherTemp(
+  yDB.filter(y=>y.mat.includes(mat)),Tval);
+ const Wrow=nearestHigherTemp(
+  wDB.filter(w=>w.mat.includes(mat)),Tval);
+
+ if(!odRow||!Srow||!Yrow||!Wrow){
+  alert("Required data missing in admin master");
+  return;
+ }
 
  const t=(Pmpa*odRow.od)/(2*(Srow.stress*E*Wrow.W+Pmpa*Yrow.Y));
  const t_req=(t+CAval)/(1-MTval);
 
- const avail=dimDB.filter(d=>d.material===mat&&d.nps===nps.value);
- const t2=nearestHigherThickness(avail.map(d=>d.thickness),t_req);
+ const t2=nearestHigherThickness(
+  avail.map(d=>d.thickness),t_req
+ );
 
  if(!t2){
-  rangeWarn.style.display="block";
-  rangeWarn.innerHTML=`⚠ Calculated thickness (${t_req.toFixed(2)} mm) exceeds available thickness range for selected NPS. Please review design inputs or update pipe dimension database.`;
+  warnBox.style.display="block";
+  warnBox.innerHTML=
+   `⚠ Calculated thickness (${t_req.toFixed(2)} mm) exceeds available thickness range for selected NPS.`;
   return;
  }
 
- const row2=avail.find(d=>d.thickness===t2);
- let suggested=row2;
-
- if(!row2.schedule && !row2.identification){
-  suggested=avail.filter(d=>(d.schedule||d.identification)&&d.thickness>t2)
-   .sort((a,b)=>a.thickness-b.thickness)[0];
- }
-
- const margin=((suggested.thickness-t_req)/t_req)*100;
- const codeRef = row2.code === "B36.19" ? "ASME B36.19" : "ASME B36.10";
-
  out.style.display="block";
  out.innerHTML=`
-<b>1️⃣ Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
-<b>2️⃣ Nearest Higher Thickness (Standard):</b>
-${row2.thickness} mm (${labelOf(row2)})<br><br>
-<b>3️⃣ Suggested Thickness for Piping System:</b>
-${suggested.thickness} mm (${labelOf(suggested)})
-`;
-
- marginBox.style.display="block";
- marginBox.innerHTML=`<b>Design Margin:</b> ${margin.toFixed(1)} %`;
-
- justifyBox.style.display="block";
- justifyBox.innerHTML=`
-<b>Thickness Justification:</b><br><br>
-
-The minimum required wall thickness has been calculated in accordance with
-<b>ASME B31.3</b>, considering the specified design pressure, design temperature,
-corrosion allowance and mill tolerance.<br><br>
-
-The nearest higher standard pipe thickness available as per
-<b>${codeRef}</b> is <b>${row2.thickness} mm</b>.
-For standardization, constructability and ease of procurement,
-the selected pipe thickness for the piping system is
-<b>${suggested.thickness} mm</b>, which provides an adequate design margin of
-<b>${margin.toFixed(1)}%</b>.
-`;
+ <b>Calculated Minimum Thickness:</b> ${t_req.toFixed(2)} mm<br><br>
+ <b>Nearest Higher Standard Thickness:</b> ${t2} mm
+ `;
 }
-
 init();
 </script>
 
